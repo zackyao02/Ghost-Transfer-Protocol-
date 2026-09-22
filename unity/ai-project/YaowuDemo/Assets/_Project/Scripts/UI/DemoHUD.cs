@@ -10,6 +10,7 @@ public sealed class DemoHUD : MonoBehaviour
     private float bossCurrent;
     private float bossMax;
     private bool showBossBar;
+    private string finalChoiceHint = string.Empty;
 
     public void Initialize(SkillManager manager)
     {
@@ -23,6 +24,7 @@ public sealed class DemoHUD : MonoBehaviour
         SimpleEventBus.BossSpawned += HandleBossSpawned;
         SimpleEventBus.BossHealthChanged += HandleBossHealthChanged;
         SimpleEventBus.DemoCompleted += HandleDemoCompleted;
+        SimpleEventBus.FinalChoiceSelectionChanged += HandleFinalChoiceSelectionChanged;
     }
 
     private void OnDisable()
@@ -32,6 +34,7 @@ public sealed class DemoHUD : MonoBehaviour
         SimpleEventBus.BossSpawned -= HandleBossSpawned;
         SimpleEventBus.BossHealthChanged -= HandleBossHealthChanged;
         SimpleEventBus.DemoCompleted -= HandleDemoCompleted;
+        SimpleEventBus.FinalChoiceSelectionChanged -= HandleFinalChoiceSelectionChanged;
     }
 
     public void SetPrompt(string text)
@@ -43,6 +46,7 @@ public sealed class DemoHUD : MonoBehaviour
     {
         resultText = string.Empty;
         showBossBar = false;
+        finalChoiceHint = string.Empty;
     }
 
     private void HandleInputModeChanged(string mode)
@@ -77,6 +81,11 @@ public sealed class DemoHUD : MonoBehaviour
         showBossBar = false;
     }
 
+    private void HandleFinalChoiceSelectionChanged(string choice, string hint)
+    {
+        finalChoiceHint = hint;
+    }
+
     private void OnGUI()
     {
         GUI.color = new Color(0f, 0f, 0f, 0.55f);
@@ -85,7 +94,7 @@ public sealed class DemoHUD : MonoBehaviour
         GUI.Label(new Rect(28f, 28f, 420f, 24f), "请神 Demo | 输入模式: " + inputMode);
         GUI.Label(new Rect(28f, 52f, 420f, 24f), "识别状态: " + recognitionStatus);
         GUI.Label(new Rect(28f, 76f, 420f, 24f), "当前提示: " + prompt);
-        GUI.Label(new Rect(28f, 100f, 420f, 24f), "操作: 1 剑气  2 火符  Q 请神  R 重置  鼠标左键画符  右键请神");
+        GUI.Label(new Rect(28f, 100f, 420f, 24f), "操作: 1 剑气  2 火符  Q 请神  Tab 选择  Enter 确认  R 重置");
 
         if (skillManager != null)
         {
@@ -112,6 +121,15 @@ public sealed class DemoHUD : MonoBehaviour
             GUI.Box(new Rect(Screen.width * 0.5f - 180f, Screen.height * 0.5f - 40f, 360f, 80f), string.Empty);
             GUI.color = new Color(1f, 0.9f, 0.3f, 1f);
             GUI.Label(new Rect(Screen.width * 0.5f - 120f, Screen.height * 0.5f - 8f, 300f, 24f), resultText);
+            GUI.color = Color.white;
+        }
+
+        if (!string.IsNullOrEmpty(finalChoiceHint) && string.IsNullOrEmpty(resultText))
+        {
+            GUI.color = new Color(0f, 0f, 0f, 0.7f);
+            GUI.Box(new Rect(Screen.width * 0.5f - 220f, Screen.height - 90f, 440f, 48f), string.Empty);
+            GUI.color = new Color(1f, 0.9f, 0.35f, 1f);
+            GUI.Label(new Rect(Screen.width * 0.5f - 204f, Screen.height - 76f, 408f, 22f), finalChoiceHint);
             GUI.color = Color.white;
         }
     }

@@ -1,5 +1,11 @@
 using UnityEngine;
 
+public enum ProtocolInputAction
+{
+    Point,
+    Confirm
+}
+
 public sealed class GestureInputRouter : MonoBehaviour
 {
     private SkillManager skillManager;
@@ -22,6 +28,8 @@ public sealed class GestureInputRouter : MonoBehaviour
         keyboardInput.ResetRequested += HandleReset;
         mouseInput.SkillRequested += HandleMouseSkill;
         mediaPipeInput.SkillRequested += HandleMediaPipeSkill;
+        mediaPipeInput.ProtocolActionRequested += HandleMediaPipeProtocolAction;
+        keyboardInput.ProtocolActionRequested += HandleKeyboardProtocolAction;
     }
 
     private void OnDestroy()
@@ -40,6 +48,12 @@ public sealed class GestureInputRouter : MonoBehaviour
         if (mediaPipeInput != null)
         {
             mediaPipeInput.SkillRequested -= HandleMediaPipeSkill;
+            mediaPipeInput.ProtocolActionRequested -= HandleMediaPipeProtocolAction;
+        }
+
+        if (keyboardInput != null)
+        {
+            keyboardInput.ProtocolActionRequested -= HandleKeyboardProtocolAction;
         }
     }
 
@@ -58,6 +72,16 @@ public sealed class GestureInputRouter : MonoBehaviour
         Dispatch(skill, "摄像头手势", label);
     }
 
+    private void HandleMediaPipeProtocolAction(ProtocolInputAction action, string label)
+    {
+        DispatchProtocolAction(action, "摄像头手势", label);
+    }
+
+    private void HandleKeyboardProtocolAction(ProtocolInputAction action, string label)
+    {
+        DispatchProtocolAction(action, "键盘", label);
+    }
+
     private void HandleReset()
     {
         SimpleEventBus.RaiseRecognitionStatusChanged("重置战斗");
@@ -69,5 +93,12 @@ public sealed class GestureInputRouter : MonoBehaviour
         SimpleEventBus.RaiseInputModeChanged(inputMode);
         SimpleEventBus.RaiseRecognitionStatusChanged("已识别: " + label);
         skillManager.CastSkill(skill);
+    }
+
+    private static void DispatchProtocolAction(ProtocolInputAction action, string inputMode, string label)
+    {
+        SimpleEventBus.RaiseInputModeChanged(inputMode);
+        SimpleEventBus.RaiseRecognitionStatusChanged("已识别: " + label);
+        SimpleEventBus.RaiseProtocolInput(action);
     }
 }

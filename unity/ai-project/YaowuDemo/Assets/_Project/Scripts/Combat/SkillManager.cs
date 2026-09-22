@@ -10,6 +10,7 @@ public sealed class SkillManager : MonoBehaviour
     private Camera playerCamera;
     private CameraShake cameraShake;
     private bool deityUsed;
+    private bool deitySummonEnabled = true;
 
     public void Initialize(Transform origin, Camera cameraRef, CameraShake shake)
     {
@@ -38,6 +39,11 @@ public sealed class SkillManager : MonoBehaviour
         cooldownReadyTimes.Clear();
     }
 
+    public void SetDeitySummonEnabled(bool enabled)
+    {
+        deitySummonEnabled = enabled;
+    }
+
     public void CastSkill(SkillType skill)
     {
         if (!CanCast(skill))
@@ -64,6 +70,12 @@ public sealed class SkillManager : MonoBehaviour
 
     private bool CanCast(SkillType skill)
     {
+        if (skill == SkillType.DeitySummon && !deitySummonEnabled)
+        {
+            SimpleEventBus.RaiseRecognitionStatusChanged("请神尚未解锁，请先完成前置仪式");
+            return false;
+        }
+
         if (skill == SkillType.DeitySummon && deityUsed)
         {
             SimpleEventBus.RaiseRecognitionStatusChanged("请神大招本局仅可释放一次");

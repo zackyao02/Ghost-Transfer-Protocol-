@@ -83,6 +83,7 @@ class GestureStateMachine:
         self.cooldown_seconds, self.neutral_seconds = cooldown_seconds, neutral_seconds
         self.state = "NO_HAND"
         self._candidate: str | None = None
+        self._candidate_trace: str | None = None
         self._candidate_since = 0.0
         self._cooldown_until = 0.0
         self._neutral_since: float | None = None
@@ -92,7 +93,7 @@ class GestureStateMachine:
     def update(self, observation: Observation | None, now: float | None = None) -> list[GestureEvent]:
         now = time.time() if now is None else now
         if observation is None:
-            self.state, self._candidate = "NO_HAND", None
+            self.state, self._candidate, self._candidate_trace = "NO_HAND", None, None
             self._neutral_since = self._neutral_since or now
             if now - self._neutral_since >= self.neutral_seconds:
                 self._armed = True
@@ -102,23 +103,30 @@ class GestureStateMachine:
             return [GestureEvent("hand_state", now, state=self.state, progress=0.0)]
         if observation.gesture is None:
             self._neutral_since = self._neutral_since or now
+            # A non-gesture frame breaks a hold; otherwise brief jitter can
+            # incorrectly confirm a gesture after it has disappeared.
+            self._candidate, self._candidate_trace = None, None
             if now - self._neutral_since >= self.neutral_seconds:
-                self.state, self._candidate, self._armed = "READY", None, True
+                self.state, self._armed = "READY", True
             return [GestureEvent("hand_state", now, state=self.state, progress=0.0)]
         if not self._armed:
-            self.state = "NEUTRAL_RESET"
-            return [GestureEvent("hand_state", now, state=self.state, progress=0.0)]
+            if self._neutral_since is not None and now - self._neutral_since >= self.neutral_seconds:
+                self._armed = True
+            else:
+                self.state = "NEUTRAL_RESET"
+                return [GestureEvent("hand_state", now, state=self.state, progress=0.0)]
         self._neutral_since = None
         if observation.gesture != self._candidate:
             self._candidate, self._candidate_since = observation.gesture, now
+            self._candidate_trace = self._trace.next(now)
             self.state = "CANDIDATE"
         required = self.hold_seconds if observation.gesture == "OpenPalm" else self.candidate_seconds
         elapsed = now - self._candidate_since
         progress = max(observation.progress, min(1.0, elapsed / required))
         if elapsed < required:
-            return [GestureEvent("gesture_candidate", now, gesture=observation.gesture, confidence=observation.confidence, state="CANDIDATE", progress=progress)]
+            return [GestureEvent("gesture_candidate", now, trace_id=self._candidate_trace, gesture=observation.gesture, confidence=observation.confidence, state="CANDIDATE", progress=progress)]
         self.state, self._cooldown_until, self._armed = "CONFIRMED", now + self.cooldown_seconds, False
-        return [GestureEvent("gesture_recognized", now, trace_id=self._trace.next(now), gesture=observation.gesture, confidence=observation.confidence, state="CONFIRMED", progress=1.0)]
+        return [GestureEvent("gesture_recognized", now, trace_id=self._candidate_trace, gesture=observation.gesture, confidence=observation.confidence, state="CONFIRMED", progress=1.0)]
 
 
 def frame_from_xy(points: list[tuple[float, float]], timestamp: float) -> HandFrame:

@@ -7,6 +7,7 @@ public sealed class KeyboardSkillInput : MonoBehaviour
     public event Action ResetRequested;
     public event Action DebugToggleRequested;
     public event Action<string> PresetLoadRequested;
+    public event Action<ProtocolInputAction, string> ProtocolActionRequested;
 
     private void Update()
     {
@@ -17,6 +18,8 @@ public sealed class KeyboardSkillInput : MonoBehaviour
         if (Input.GetKeyDown(KeyCode.F1)) DebugToggleRequested?.Invoke();
         if (Input.GetKeyDown(KeyCode.F2)) PresetLoadRequested?.Invoke("kind");
         if (Input.GetKeyDown(KeyCode.F3)) PresetLoadRequested?.Invoke("hostile");
+        if (Input.GetKeyDown(KeyCode.Tab)) ProtocolActionRequested?.Invoke(ProtocolInputAction.Point, "键盘切换选择");
+        if (Input.GetKeyDown(KeyCode.Return) || Input.GetKeyDown(KeyCode.KeypadEnter)) ProtocolActionRequested?.Invoke(ProtocolInputAction.Confirm, "键盘确认");
 
         if (Input.GetKeyDown(KeyCode.Escape))
         {

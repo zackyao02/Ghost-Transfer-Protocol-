@@ -72,6 +72,7 @@ public sealed class GameJamBootstrap : MonoBehaviour
 
         DemoFlowController flow = new GameObject("DemoFlowController").AddComponent<DemoFlowController>();
         flow.Initialize(enemySpawner, hud, skillManager, playerRoot.transform);
+        flow.SetWorldState(worldState);
 
         BuildTempleEnvironment(playerRoot.transform.position);
         flow.StartDemo();

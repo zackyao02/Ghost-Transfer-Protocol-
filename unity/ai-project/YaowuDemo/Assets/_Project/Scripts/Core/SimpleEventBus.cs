@@ -12,6 +12,8 @@ public static class SimpleEventBus
     public static event Action<string> InputModeChanged;
     public static event Action<string> RecognitionStatusChanged;
     public static event Action<float, float> BossHealthChanged;
+    public static event Action<ProtocolInputAction> ProtocolInputReceived;
+    public static event Action<string, string> FinalChoiceSelectionChanged;
 
     public static void RaiseSkillCast(SkillType skill)
     {
@@ -56,5 +58,15 @@ public static class SimpleEventBus
     public static void RaiseBossHealthChanged(float current, float max)
     {
         BossHealthChanged?.Invoke(current, max);
+    }
+
+    public static void RaiseProtocolInput(ProtocolInputAction action)
+    {
+        ProtocolInputReceived?.Invoke(action);
+    }
+
+    public static void RaiseFinalChoiceSelectionChanged(string choice, string hint)
+    {
+        FinalChoiceSelectionChanged?.Invoke(choice, hint);
     }
 }

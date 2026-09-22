@@ -22,6 +22,7 @@ public sealed class MediaPipeHandInput : MonoBehaviour
     }
 
     public event Action<SkillType, string> SkillRequested;
+    public event Action<ProtocolInputAction, string> ProtocolActionRequested;
     public event Action<bool> AvailabilityChanged;
 
     [SerializeField] private string host = "127.0.0.1";
@@ -147,6 +148,15 @@ public sealed class MediaPipeHandInput : MonoBehaviour
             return;
         }
 
+        ProtocolInputAction protocolAction;
+        string protocolLabel;
+        if (TryMapProtocolAction(message.gesture, out protocolAction, out protocolLabel))
+        {
+            SimpleEventBus.RaiseRecognitionStatusChanged("已识别: " + protocolLabel);
+            ProtocolActionRequested?.Invoke(protocolAction, protocolLabel);
+            return;
+        }
+
         SkillType skill;
         string label;
         if (!TryMapGesture(message.gesture, out skill, out label))
@@ -156,6 +166,16 @@ public sealed class MediaPipeHandInput : MonoBehaviour
 
         SimpleEventBus.RaiseRecognitionStatusChanged("已识别: " + label);
         SkillRequested?.Invoke(skill, label);
+    }
+
+    private static bool TryMapProtocolAction(string gesture, out ProtocolInputAction action, out string label)
+    {
+        switch (gesture)
+        {
+            case "Point": action = ProtocolInputAction.Point; label = "指向选择"; return true;
+            case "Confirm": action = ProtocolInputAction.Confirm; label = "确认"; return true;
+            default: action = ProtocolInputAction.Point; label = string.Empty; return false;
+        }
     }
 
     private static bool TryMapGesture(string gesture, out SkillType skill, out string label)

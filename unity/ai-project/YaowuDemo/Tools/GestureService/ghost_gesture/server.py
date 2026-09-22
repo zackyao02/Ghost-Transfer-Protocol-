@@ -3,7 +3,9 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import logging
+import time
 
+from .audit import StructuredEventLogger
 from .models import GestureEvent
 from .protocol import encode_message
 
@@ -11,11 +13,12 @@ LOGGER = logging.getLogger(__name__)
 
 
 class GestureTcpServer:
-    def __init__(self, host: str = "127.0.0.1", port: int = 8765) -> None:
+    def __init__(self, host: str = "127.0.0.1", port: int = 8765, audit_logger: StructuredEventLogger | None = None) -> None:
         self.host = host
         self.port = port
         self._clients: set[asyncio.StreamWriter] = set()
         self._server: asyncio.Server | None = None
+        self._audit_logger = audit_logger
 
     @property
     def client_count(self) -> int:
@@ -43,6 +46,7 @@ class GestureTcpServer:
                 await writer.wait_closed()
 
     async def broadcast(self, event: GestureEvent) -> None:
+        started = time.monotonic()
         packet = encode_message(event.to_dict())
         for writer in tuple(self._clients):
             try:
@@ -51,6 +55,8 @@ class GestureTcpServer:
             except (ConnectionError, OSError):
                 self._clients.discard(writer)
                 writer.close()
+        if self._audit_logger is not None:
+            self._audit_logger.record(event, (time.monotonic() - started) * 1000, self.client_count)
 
     async def close(self) -> None:
         for writer in tuple(self._clients):

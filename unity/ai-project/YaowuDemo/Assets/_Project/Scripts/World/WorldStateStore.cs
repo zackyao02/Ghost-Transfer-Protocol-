@@ -68,4 +68,48 @@ public sealed class WorldStateStore : MonoBehaviour
         PlayerPrefs.SetString(SaveKey, JsonUtility.ToJson(Current));
         PlayerPrefs.Save();
     }
+
+    public void ApplyFinalChoice(string choice)
+    {
+        if (Current == null || Current.ghost == null)
+        {
+            Current = new PersistentWorldState();
+        }
+
+        Current.lastChoice = choice;
+        switch (choice)
+        {
+            case "seal":
+                Current.corruption = Mathf.Max(0, Current.corruption - 25);
+                Current.ghost.trust -= 10;
+                AddUnique(Current.scars, "red_seal");
+                break;
+            case "symbiosis":
+                Current.cycle += 1;
+                Current.ghost.trust += 25;
+                AddUnique(Current.ghost.memories, "与神明共生");
+                AddUnique(Current.scars, "cyan_guard");
+                break;
+            case "transfer":
+                Current.cycle += 1;
+                Current.corruption = Mathf.Max(0, Current.corruption - 10);
+                Current.ghost.trust += 5;
+                Current.ghost.shell = "player_vessel";
+                AddUnique(Current.ghost.memories, "代价转移");
+                break;
+            default:
+                return;
+        }
+
+        Save();
+        Changed?.Invoke(Current);
+    }
+
+    private static void AddUnique(List<string> values, string value)
+    {
+        if (!values.Contains(value))
+        {
+            values.Add(value);
+        }
+    }
 }
