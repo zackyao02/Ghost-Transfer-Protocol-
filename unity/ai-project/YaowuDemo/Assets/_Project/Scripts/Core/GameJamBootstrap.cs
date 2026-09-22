@@ -69,6 +69,7 @@ public sealed class GameJamBootstrap : MonoBehaviour
         flow.Initialize(enemySpawner, hud, skillManager, playerRoot.transform);
 
         BuildTempleEnvironment(playerRoot.transform.position);
+        ShrineSceneLayout.Build(playerRoot.transform.position);
         flow.StartDemo();
     }
 
