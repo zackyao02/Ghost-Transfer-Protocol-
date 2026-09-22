@@ -118,10 +118,19 @@ public sealed class ShrineEnvironmentController : MonoBehaviour
         RenderSettings.ambientMode = UnityEngine.Rendering.AmbientMode.Flat;
         RenderSettings.ambientLight = ActiveAct == 4
             ? new Color(0.33f, 0.27f, 0.32f)
-            : new Color(0.38f, 0.45f, 0.51f);        RenderSettings.fog = true;
+            : new Color(0.38f, 0.45f, 0.51f);
+        RenderSettings.fog = true;
         RenderSettings.fogMode = FogMode.ExponentialSquared;
         RenderSettings.fogColor = fog;
         RenderSettings.fogDensity = density;
+
+        ShrineSceneArt.ApplyAct(transform, ActiveAct);
+        Camera sceneCamera = Camera.main;
+        if (sceneCamera != null)
+        {
+            ShrineCameraGrade grade = sceneCamera.GetComponent<ShrineCameraGrade>();
+            if (grade != null) grade.SetAct(ActiveAct);
+        }
 
         if (altarLight != null)
         {

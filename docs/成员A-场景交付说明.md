@@ -39,6 +39,13 @@ feature/scene 运行 SampleScene 后，由 ShrineSceneLayout 创建 Scene_A_Cybe
 
 ## 当前限制
 
-- 已用 Unity 2022.3.62f3c1 在独立副本中完成脚本编译和静态玩家镜头渲染；仍需在正式工程中试玩确认性能和玩法。
-- 现阶段为程序化灰盒；B 的正式 Prefab 到位后由 A 在主场景替换占位表现。
+- 已用 Unity 2022.3.62f3c1 在独立副本中完成脚本编译和第一幕、第五幕静态玩家镜头渲染；仍需在正式工程中试玩确认性能和玩法。
+- 现阶段为程序化场景美术第一版；B 的正式 Prefab 到位后由 A 在主场景替换占位表现。
 - 旧 Demo 的 BuildTempleEnvironment 方法暂时保留供对照，但启动流程已停止调用，避免双层地面和重复祭坛。
+## 场景美术化第一版
+
+- 参道与庭院石材使用 `Assets/Resources/SceneTextures/BasaltPaving.png`，由内置 imagegen 工具生成，提示词目标是“无文字、无光照烘焙、可重复的冷色磨损玄武岩地砖”。
+- 入口补鸟居框景与悬挂符纸；神社补坡屋顶、瓦棱、木格栅与祭坛机械浮雕；庭院补雨水池、破损石材和墙体节奏。
+- 第一至第五幕各有独立视觉层：校准环、污染裂口、记忆数据列、Boss 地面预警、神降金色法阵。第四幕会收起记忆碑，露出神社后方的 Boss 门洞；仍通过原有 `ApplyActVisual` 接口切换。
+- 增加局部补光与无需新包的轻量镜头色调 Shader；不修改手势、战斗或角色资产。
+- 独立 QA 截图位于 `work/scene-qa/player-view.png`、`work/scene-qa/act4-view.png` 与 `work/scene-qa/act5-view.png`（该目录被 Git 忽略，正式预览请在 Unity 的 Game 标签查看）。

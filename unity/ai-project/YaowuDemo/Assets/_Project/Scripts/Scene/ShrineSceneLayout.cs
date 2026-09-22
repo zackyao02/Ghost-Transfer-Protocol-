@@ -25,6 +25,7 @@ public static class ShrineSceneLayout
         BuildArchitecture(architecture);
         BuildRitualFloor(architecture);
         BuildSideShrines(architecture);
+        ShrineSceneArt.Build(architecture);
         BuildSkyline(skyline);
         BuildEclipse(skyline);
         BuildAnchors(anchors, playerSpawn);
@@ -37,6 +38,7 @@ public static class ShrineSceneLayout
         GameObject seal = BuildSealScar(scars);
         GameObject coexist = BuildCoexistScar(scars);
         GameObject transfer = BuildTransferScar(scars);
+        ShrineCameraGrade.Attach(Camera.main);
         controller.Initialize(altarLight, bossLight, rain, seal, coexist, transfer);
         return controller;
     }
