@@ -4,8 +4,8 @@
 
 feature/scene 运行 SampleScene 后，由 ShrineSceneLayout 创建 Scene_A_CyberShrine：
 
-- 废弃赛博神社灰盒：庭院、参道、祭坛、神龛、Boss 鸟居入口。
-- 环境表现：青金/朱红灯光、指数雾、雨、城市远景。
+- 废弃赛博神社灰盒：石板参道、符文法阵、祭坛、层叠屋檐、两侧小神龛和 Boss 鸟居入口。
+- 环境表现：青金/朱红灯光、指数雾、雨、带窗光的城市远景和神社背后的 Ghost 符环。
 - 五个固定镜头节点。
 - 两个石精点位、一个山魈点位、一个神降位置、一个结局焦点。
 - 封存、共生、换壳三种结局的场景伤痕占位。
@@ -33,8 +33,12 @@ feature/scene 运行 SampleScene 后，由 ShrineSceneLayout 创建 Scene_A_Cybe
 
 成员 C 只需在流程状态切换时调用接口；成员 B 将角色与 VFX Prefab 对齐对应锚点即可。场景模块不处理手势、技能伤害、Agent 或角色逻辑。
 
+## 查看效果
+
+在 Unity 打开 Assets/Scenes/SampleScene.unity，点击 Play，再切到 Game 标签查看玩家镜头。Scene 标签中的网格、彩色线框和灯光图标是编辑辅助线；需要时关闭右上角 Gizmos。
+
 ## 当前限制
 
-- 当前机器未安装 Unity Editor，尚未完成真实编译和画面验收。
+- 已用 Unity 2022.3.62f3c1 在独立副本中完成脚本编译和静态玩家镜头渲染；仍需在正式工程中试玩确认性能和玩法。
 - 现阶段为程序化灰盒；B 的正式 Prefab 到位后由 A 在主场景替换占位表现。
-- 旧 Demo 的 BuildTempleEnvironment 暂时保留，便于迁移基线回退；联调确认后再清理重复占位。
+- 旧 Demo 的 BuildTempleEnvironment 方法暂时保留供对照，但启动流程已停止调用，避免双层地面和重复祭坛。

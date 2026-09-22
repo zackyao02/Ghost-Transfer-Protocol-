@@ -31,7 +31,7 @@ public sealed class GameJamBootstrap : MonoBehaviour
         }
 
         GameObject playerRoot = new GameObject("PlayerRoot");
-        playerRoot.transform.position = new Vector3(0f, 1.2f, -12f);
+        playerRoot.transform.position = new Vector3(0f, 1.2f, -9f);
         CharacterController controller = playerRoot.AddComponent<CharacterController>();
         controller.height = 1.8f;
         controller.radius = 0.35f;
@@ -68,7 +68,6 @@ public sealed class GameJamBootstrap : MonoBehaviour
         DemoFlowController flow = new GameObject("DemoFlowController").AddComponent<DemoFlowController>();
         flow.Initialize(enemySpawner, hud, skillManager, playerRoot.transform);
 
-        BuildTempleEnvironment(playerRoot.transform.position);
         ShrineSceneLayout.Build(playerRoot.transform.position);
         flow.StartDemo();
     }
@@ -94,7 +93,7 @@ public sealed class GameJamBootstrap : MonoBehaviour
 
         cameraRef.clearFlags = CameraClearFlags.SolidColor;
         cameraRef.backgroundColor = new Color(0.05f, 0.06f, 0.08f);
-        cameraRef.fieldOfView = 72f;
+        cameraRef.fieldOfView = 64f;
         return cameraRef;
     }
 

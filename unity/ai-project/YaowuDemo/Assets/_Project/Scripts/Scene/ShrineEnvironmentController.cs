@@ -20,6 +20,41 @@ public sealed class ShrineEnvironmentController : MonoBehaviour
     public int ActiveAct { get; private set; } = 1;
     public SceneEndingVisual ActiveEnding { get; private set; }
 
+    private void OnEnable()
+    {
+        SimpleEventBus.SkillCast += HandleSkillCast;
+        SimpleEventBus.BossSpawned += HandleBossSpawned;
+        SimpleEventBus.DeitySummonStarted += HandleDeitySummonStarted;
+        SimpleEventBus.DemoCompleted += HandleDemoCompleted;
+    }
+
+    private void OnDisable()
+    {
+        SimpleEventBus.SkillCast -= HandleSkillCast;
+        SimpleEventBus.BossSpawned -= HandleBossSpawned;
+        SimpleEventBus.DeitySummonStarted -= HandleDeitySummonStarted;
+        SimpleEventBus.DemoCompleted -= HandleDemoCompleted;
+    }
+
+    private void HandleSkillCast(SkillType skill)
+    {
+        if (ActiveAct == 1) ApplyActVisual(2);
+    }
+
+    private void HandleBossSpawned(EnemyHealth boss)
+    {
+        ApplyActVisual(4);
+    }
+
+    private void HandleDeitySummonStarted()
+    {
+        ApplyActVisual(5);
+    }
+
+    private void HandleDemoCompleted()
+    {
+        ApplyActVisual(5);
+    }
     public void Initialize(Light altar, Light boss, ParticleSystem rainSystem, GameObject seal, GameObject coexist, GameObject transfer)
     {
         altarLight = altar;
@@ -48,14 +83,14 @@ public sealed class ShrineEnvironmentController : MonoBehaviour
                 altar = new Color(0.2f, 0.8f, 1f);
                 density = 0.04f;
                 altarPower = 1.2f;
-                bossPower = 0f;
+                bossPower = 0.85f;
                 break;
             case 2:
                 fog = new Color(0.08f, 0.04f, 0.045f);
                 altar = new Color(1f, 0.3f, 0.12f);
                 density = 0.032f;
                 altarPower = 1.8f;
-                bossPower = 0.4f;
+                bossPower = 1.15f;
                 break;
             case 3:
                 fog = new Color(0.035f, 0.07f, 0.08f);
@@ -80,7 +115,10 @@ public sealed class ShrineEnvironmentController : MonoBehaviour
                 break;
         }
 
-        RenderSettings.fog = true;
+        RenderSettings.ambientMode = UnityEngine.Rendering.AmbientMode.Flat;
+        RenderSettings.ambientLight = ActiveAct == 4
+            ? new Color(0.33f, 0.27f, 0.32f)
+            : new Color(0.38f, 0.45f, 0.51f);        RenderSettings.fog = true;
         RenderSettings.fogMode = FogMode.ExponentialSquared;
         RenderSettings.fogColor = fog;
         RenderSettings.fogDensity = density;
