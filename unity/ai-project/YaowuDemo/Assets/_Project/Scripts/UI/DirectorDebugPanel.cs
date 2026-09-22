@@ -6,6 +6,8 @@ public sealed class DirectorDebugPanel : MonoBehaviour
     private MediaPipeHandInput mediaPipe;
     private WorldStateStore world;
     private bool visible;
+    private GUIStyle textStyle;
+    private GUIStyle headerStyle;
 
     public void Initialize(KeyboardSkillInput input, MediaPipeHandInput handInput, WorldStateStore state)
     {
@@ -45,15 +47,32 @@ public sealed class DirectorDebugPanel : MonoBehaviour
             return;
         }
 
+        EnsureStyles();
+        float scale = Mathf.Clamp(Screen.height / 1080f, 0.7f, 1.2f);
+        Matrix4x4 oldMatrix = GUI.matrix;
+        GUI.matrix = Matrix4x4.TRS(Vector3.zero, Quaternion.identity, new Vector3(scale, scale, 1f));
+        float width = Screen.width / scale;
         PersistentWorldState state = world.Current;
-        GUI.color = new Color(0f, 0f, 0f, 0.78f);
-        GUI.Box(new Rect(Screen.width - 360f, 16f, 344f, 160f), string.Empty);
+        Rect panel = new Rect(width - 348f, 92f, 320f, 176f);
+        GUI.color = new Color(0.025f, 0.04f, 0.06f, 0.95f); GUI.DrawTexture(panel, Texture2D.whiteTexture);
+        GUI.color = new Color(0.95f, 0.28f, 0.35f); GUI.DrawTexture(new Rect(panel.x, panel.y, panel.width, 2f), Texture2D.whiteTexture);
+        GUI.Label(new Rect(panel.x + 14f, panel.y + 11f, 290f, 20f), "DIRECTOR DEBUG // F1", headerStyle);
+        GUI.color = new Color(0.75f, 0.86f, 0.9f);
+        GUI.Label(new Rect(panel.x + 14f, panel.y + 40f, 290f, 18f), "Gesture TCP  " + (mediaPipe != null && mediaPipe.IsAvailable ? "ONLINE" : "KEYBOARD FALLBACK"), textStyle);
+        GUI.Label(new Rect(panel.x + 14f, panel.y + 64f, 290f, 18f), "Cycle " + state.cycle + "   Corruption " + state.corruption, textStyle);
+        GUI.Label(new Rect(panel.x + 14f, panel.y + 88f, 290f, 18f), "Ghost trust " + state.ghost.trust + "   Shell " + state.ghost.shell, textStyle);
+        GUI.Label(new Rect(panel.x + 14f, panel.y + 112f, 290f, 18f), "Last choice  " + (string.IsNullOrEmpty(state.lastChoice) ? "none" : state.lastChoice), textStyle);
+        GUI.color = new Color(1f, 0.68f, 0.35f); GUI.Label(new Rect(panel.x + 14f, panel.y + 144f, 290f, 18f), "F2 善意预设   F3 敌意预设", textStyle);
+        GUI.matrix = oldMatrix;
         GUI.color = Color.white;
-        GUI.Label(new Rect(Screen.width - 344f, 28f, 320f, 22f), "WORLD DIRECTOR DEBUG");
-        GUI.Label(new Rect(Screen.width - 344f, 52f, 320f, 22f), "Gesture TCP: " + (mediaPipe != null && mediaPipe.IsAvailable ? "ONLINE" : "KEYBOARD FALLBACK"));
-        GUI.Label(new Rect(Screen.width - 344f, 76f, 320f, 22f), "Cycle: " + state.cycle + " | Corruption: " + state.corruption);
-        GUI.Label(new Rect(Screen.width - 344f, 100f, 320f, 22f), "Ghost trust: " + state.ghost.trust + " | Shell: " + state.ghost.shell);
-        GUI.Label(new Rect(Screen.width - 344f, 124f, 320f, 22f), "Last choice: " + (string.IsNullOrEmpty(state.lastChoice) ? "none" : state.lastChoice));
-        GUI.Label(new Rect(Screen.width - 344f, 148f, 320f, 22f), "F2 善意存档 | F3 敌意存档");
+    }
+
+    private void EnsureStyles()
+    {
+        if (textStyle != null) return;
+        Font chinese = Font.CreateDynamicFontFromOSFont(new[] { "Microsoft YaHei UI", "Microsoft YaHei", "PingFang SC", "Noto Sans CJK SC" }, 14);
+        Font font = chinese != null ? chinese : GUI.skin.font;
+        textStyle = new GUIStyle(GUI.skin.label) { font = font, fontSize = 12, alignment = TextAnchor.MiddleLeft };
+        headerStyle = new GUIStyle(textStyle) { fontSize = 15, fontStyle = FontStyle.Bold };
     }
 }

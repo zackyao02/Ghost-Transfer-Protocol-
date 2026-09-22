@@ -74,7 +74,7 @@ public sealed class GameJamBootstrap : MonoBehaviour
         flow.Initialize(enemySpawner, hud, skillManager, playerRoot.transform);
         flow.SetWorldState(worldState);
 
-        BuildTempleEnvironment(playerRoot.transform.position);
+        CyberShrinePresentation.CreateOrReplace(playerRoot.transform.position);
         flow.StartDemo();
     }
 
@@ -103,65 +103,4 @@ public sealed class GameJamBootstrap : MonoBehaviour
         return cameraRef;
     }
 
-    private static void BuildTempleEnvironment(Vector3 playerSpawn)
-    {
-        GameObject ground = GameObject.CreatePrimitive(PrimitiveType.Plane);
-        ground.name = "TempleGround";
-        ground.transform.position = Vector3.zero;
-        ground.transform.localScale = new Vector3(4f, 1f, 4f);
-        Renderer groundRenderer = ground.GetComponent<Renderer>();
-        groundRenderer.material = new Material(Shader.Find("Standard"));
-        groundRenderer.material.color = new Color(0.16f, 0.17f, 0.18f);
-
-        CreateAltar(new Vector3(0f, 0.5f, 8f), new Vector3(8f, 1f, 8f), new Color(0.22f, 0.2f, 0.19f));
-        CreateAltar(new Vector3(0f, 0.15f, 8f), new Vector3(6f, 0.15f, 6f), new Color(0.78f, 0.52f, 0.16f), true);
-        CreateAltar(new Vector3(0f, 2.25f, 20f), new Vector3(5f, 4.5f, 1f), new Color(0.28f, 0.24f, 0.2f));
-        CreateAltar(new Vector3(-3f, 2f, 20f), new Vector3(1f, 4f, 1f), new Color(0.25f, 0.2f, 0.18f));
-        CreateAltar(new Vector3(3f, 2f, 20f), new Vector3(1f, 4f, 1f), new Color(0.25f, 0.2f, 0.18f));
-        CreateAltar(new Vector3(0f, 1.2f, 19.6f), new Vector3(2f, 2.4f, 0.6f), new Color(0.62f, 0.58f, 0.42f));
-
-        for (int index = 0; index < 10; index++)
-        {
-            float x = index < 5 ? -16f - index * 1.4f : 16f + (index - 5) * 1.4f;
-            float z = 4f + (index % 5) * 6f;
-            GameObject trunk = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
-            trunk.transform.position = new Vector3(x, 2f, z);
-            trunk.transform.localScale = new Vector3(0.22f, 2f, 0.22f);
-            Renderer trunkRenderer = trunk.GetComponent<Renderer>();
-            trunkRenderer.material = new Material(Shader.Find("Standard"));
-            trunkRenderer.material.color = new Color(0.14f, 0.1f, 0.08f);
-        }
-
-        Light altarLight = new GameObject("AltarLight").AddComponent<Light>();
-        altarLight.type = LightType.Point;
-        altarLight.range = 18f;
-        altarLight.intensity = 2.2f;
-        altarLight.color = new Color(1f, 0.75f, 0.36f);
-        altarLight.transform.position = new Vector3(0f, 3.2f, 9f);
-
-        GameObject hint = GameObject.CreatePrimitive(PrimitiveType.Cube);
-        hint.name = "PlayerSafeZone";
-        hint.transform.position = playerSpawn + new Vector3(0f, -1.19f, 1.8f);
-        hint.transform.localScale = new Vector3(2.2f, 0.02f, 2.2f);
-        Renderer hintRenderer = hint.GetComponent<Renderer>();
-        hintRenderer.material = new Material(Shader.Find("Standard"));
-        hintRenderer.material.EnableKeyword("_EMISSION");
-        hintRenderer.material.color = new Color(0.16f, 0.22f, 0.2f);
-        hintRenderer.material.SetColor("_EmissionColor", new Color(0.1f, 0.35f, 0.28f));
-    }
-
-    private static void CreateAltar(Vector3 position, Vector3 scale, Color color, bool emissive = false)
-    {
-        GameObject cube = GameObject.CreatePrimitive(PrimitiveType.Cube);
-        cube.transform.position = position;
-        cube.transform.localScale = scale;
-        Renderer renderer = cube.GetComponent<Renderer>();
-        renderer.material = new Material(Shader.Find("Standard"));
-        renderer.material.color = color;
-        if (emissive)
-        {
-            renderer.material.EnableKeyword("_EMISSION");
-            renderer.material.SetColor("_EmissionColor", color * 0.75f);
-        }
-    }
 }
