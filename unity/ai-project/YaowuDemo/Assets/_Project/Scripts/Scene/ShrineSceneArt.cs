@@ -16,12 +16,16 @@ public static class ShrineSceneArt
     public static void Build(Transform architecture)
     {
         Transform art = Group(architecture, "ArtDirection");
+        Camera sceneCamera = Camera.main;
+        if (sceneCamera != null)
+            sceneCamera.backgroundColor = new Color(0.085f, 0.13f, 0.18f);
         ApplyBasalt(architecture);
         RefinishExisting(architecture);
         BuildEntrance(art);
         BuildShrineRoof(art);
         BuildAltarDetails(art);
         BuildCourtyard(art);
+        BuildCyberHardware(art);
         BuildActLayers(art);
         BuildArtLights(art);
     }
@@ -71,8 +75,12 @@ public static class ShrineSceneArt
                 ? new Vector2(7f, 10f) : name.StartsWith("PathStone_")
                     ? new Vector2(1.3f, 1f) : new Vector2(2f, 2f);
             material.color = name == "CourtyardFloor"
-                ? new Color(0.48f, 0.55f, 0.62f) : new Color(0.70f, 0.78f, 0.84f);
-            material.SetFloat("_Glossiness", 0.16f);
+                ? new Color(0.68f, 0.75f, 0.82f) : new Color(0.86f, 0.91f, 0.95f);
+            material.SetFloat("_Glossiness", 0.13f);
+            material.EnableKeyword("_EMISSION");
+            material.SetColor("_EmissionColor", name == "CourtyardFloor"
+                ? new Color(0.018f, 0.029f, 0.042f)
+                : new Color(0.035f, 0.054f, 0.071f));
         }
     }
 
@@ -86,6 +94,12 @@ public static class ShrineSceneArt
             if (name.StartsWith("BossGate_") && !name.Contains("Gold") && !name.Contains("Rift"))
                 renderer.sharedMaterial.color = Roof;
             if (name == "MemorySlab") renderer.sharedMaterial.color = Slate;
+            if (name == "LeftBoundary" || name == "RightBoundary" || name == "CourtyardFarWall")
+                renderer.sharedMaterial.color = new Color(0.17f, 0.22f, 0.27f);
+            if (name.StartsWith("SideShrine_Body_") || name == "ShrineRoofUpper")
+                renderer.sharedMaterial.color = new Color(0.20f, 0.25f, 0.29f);
+            if (name.StartsWith("Tower_") && !name.Contains("Window") && !name.Contains("Antenna"))
+                renderer.sharedMaterial.color = new Color(0.12f, 0.17f, 0.22f);
             if (name == "ShrineBack") renderer.gameObject.SetActive(false);
             if (name.EndsWith("_Glow"))
             {
@@ -236,6 +250,47 @@ public static class ShrineSceneArt
         }
     }
 
+    private static void BuildCyberHardware(Transform parent)
+    {
+        Transform hardware = Group(parent, "GhostShell_Interfaces");
+        for (int side = -1; side <= 1; side += 2)
+        {
+            float x = side * 9.5f;
+            // A shell-transfer docking frame turns each side shrine into a readable machine.
+            Box(hardware, "DockBack_" + side, new Vector3(x, 1.65f, 4.05f),
+                new Vector3(1.55f, 2.15f, 0.12f), Charcoal);
+            Box(hardware, "DockHeader_" + side, new Vector3(x, 2.76f, 4.0f),
+                new Vector3(1.83f, 0.18f, 0.25f), Slate);
+            for (int rail = -1; rail <= 1; rail += 2)
+            {
+                Box(hardware, "DockRail_" + side + "_" + rail,
+                    new Vector3(x + rail * 0.79f, 1.65f, 3.95f),
+                    new Vector3(0.12f, 2.25f, 0.20f), Bronze);
+                Box(hardware, "DockData_" + side + "_" + rail,
+                    new Vector3(x + rail * 0.58f, 1.64f, 3.96f),
+                    new Vector3(0.035f, 1.65f, 0.025f), Cyan, 0.9f);
+            }
+            Ring(hardware, "ShellSocket_" + side,
+                new Vector3(x, 1.68f, 3.91f), 0.55f, Cyan, 20, false);
+            Box(hardware, "ShellCore_" + side, new Vector3(x, 1.68f, 3.87f),
+                new Vector3(0.24f, 0.24f, 0.045f), Gold, 0.8f);
+            Box(hardware, "DockFoot_" + side, new Vector3(x, 0.54f, 3.65f),
+                new Vector3(2.0f, 0.18f, 0.86f), Slate);
+            Beam(hardware, "DataConduit_" + side,
+                new Vector3(x, 3.05f, 5.0f), new Vector3(side * 6.1f, 4.6f, 11.1f),
+                0.09f, Charcoal);
+            Beam(hardware, "DataConduitLit_" + side,
+                new Vector3(x, 3.08f, 4.98f), new Vector3(side * 6.1f, 4.63f, 11.08f),
+                0.025f, Cyan, 0.45f);
+        }
+        for (int i = -2; i <= 2; i++)
+        {
+            Box(hardware, "AltarCircuit_" + i, new Vector3(i * 0.6f, 1.34f, 8.55f),
+                new Vector3(0.12f, 0.018f, 1.35f), Cyan, 0.6f);
+            Box(hardware, "AltarContact_" + i, new Vector3(i * 0.6f, 1.36f, 7.85f),
+                new Vector3(0.30f, 0.025f, 0.16f), Gold, 0.4f);
+        }
+    }
     private static void BuildActLayers(Transform parent)
     {
         Transform calibration = Group(parent, "Act_1");

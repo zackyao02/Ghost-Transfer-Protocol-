@@ -246,7 +246,7 @@ public static class ShrineSceneLayout
         main.simulationSpace = ParticleSystemSimulationSpace.World;
         main.maxParticles = 2400;
         ParticleSystem.EmissionModule emission = rain.emission;
-        emission.rateOverTime = 650f;
+        emission.rateOverTime = 260f;
         ParticleSystem.ShapeModule shape = rain.shape;
         shape.shapeType = ParticleSystemShapeType.Box;
         shape.scale = new Vector3(25f, 1f, 32f);
@@ -258,7 +258,7 @@ public static class ShrineSceneLayout
             rainRenderer.sharedMaterial = new Material(rainShader);
         }
         rainRenderer.renderMode = ParticleSystemRenderMode.Stretch;
-        rainRenderer.lengthScale = 2f;
+        rainRenderer.lengthScale = 1.35f;
         rainRenderer.velocityScale = 0.04f;
         return rain;
     }

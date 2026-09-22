@@ -117,8 +117,8 @@ public sealed class ShrineEnvironmentController : MonoBehaviour
 
         RenderSettings.ambientMode = UnityEngine.Rendering.AmbientMode.Flat;
         RenderSettings.ambientLight = ActiveAct == 4
-            ? new Color(0.33f, 0.27f, 0.32f)
-            : new Color(0.38f, 0.45f, 0.51f);
+            ? new Color(0.44f, 0.42f, 0.48f)
+            : new Color(0.49f, 0.57f, 0.65f);
         RenderSettings.fog = true;
         RenderSettings.fogMode = FogMode.ExponentialSquared;
         RenderSettings.fogColor = fog;
@@ -144,7 +144,7 @@ public sealed class ShrineEnvironmentController : MonoBehaviour
         if (rain != null)
         {
             ParticleSystem.EmissionModule emission = rain.emission;
-            emission.rateOverTime = ActiveAct == 5 ? 280f : 650f;
+            emission.rateOverTime = ActiveAct == 5 ? 140f : 260f;
         }
     }
 

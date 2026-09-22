@@ -6,7 +6,7 @@ public sealed class ShrineCameraGrade : MonoBehaviour
 {
     private Material gradeMaterial;
     private Color actTint = Color.white;
-    private float exposure = 1.08f;
+    private float exposure = 1.19f;
 
     public static void Attach(Camera cameraRef)
     {
@@ -20,23 +20,23 @@ public sealed class ShrineCameraGrade : MonoBehaviour
         {
             case 2:
                 actTint = new Color(1.05f, 0.96f, 0.96f);
-                exposure = 1.09f;
+                exposure = 1.17f;
                 break;
             case 3:
                 actTint = new Color(0.96f, 1.04f, 1.05f);
-                exposure = 1.11f;
+                exposure = 1.19f;
                 break;
             case 4:
                 actTint = new Color(1.08f, 0.91f, 0.91f);
-                exposure = 1.06f;
+                exposure = 1.20f;
                 break;
             case 5:
                 actTint = new Color(1.07f, 1.04f, 0.96f);
-                exposure = 1.16f;
+                exposure = 1.20f;
                 break;
             default:
                 actTint = new Color(0.98f, 1.02f, 1.05f);
-                exposure = 1.08f;
+                exposure = 1.19f;
                 break;
         }
     }
