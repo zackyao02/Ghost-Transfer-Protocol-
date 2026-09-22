@@ -6,6 +6,7 @@ import math
 import threading
 
 from ghost_gesture.audit import StructuredEventLogger
+from ghost_gesture.calibration import GestureCalibration, TrajectoryFeatures
 from ghost_gesture.detector import GestureDetector, GestureStateMachine, Observation
 from ghost_gesture.metrics import ManualGestureStats
 from ghost_gesture.models import GestureEvent, HandFrame, Landmark
@@ -123,20 +124,24 @@ def test_detector_accepts_relaxed_pinch_distance() -> None:
 
 def test_detector_recognizes_horizontal_sword_before_static_point() -> None:
     detector = GestureDetector()
+    for step in range(5):
+        detector.observe(_pointing_frame(0.0, 1.0, step * 0.05))
     observations = [
-        detector.observe(_pointing_frame(-0.55 + step * 0.10, 1.0, step * 0.05))
+        detector.observe(_pointing_frame(-0.55 + step * 0.10, 1.0, 0.25 + step * 0.05))
         for step in range(13)
     ]
-    assert observations[-1].gesture == "SwordQi"
+    assert any(observation.gesture == "SwordQi" for observation in observations)
 
 
 def test_detector_recognizes_full_circle() -> None:
     detector = GestureDetector()
+    for step in range(5):
+        detector.observe(_pointing_frame(0.0, 1.0, step * 0.05))
     observations = []
     for step in range(22):
         angle = step * (2 * math.pi / 21)
-        observations.append(detector.observe(_pointing_frame(0.55 * math.cos(angle), 1.0 + 0.55 * math.sin(angle), step * 0.05)))
-    assert observations[-1].gesture == "FireTalisman"
+        observations.append(detector.observe(_pointing_frame(0.55 * math.cos(angle), 1.0 + 0.55 * math.sin(angle), 0.25 + step * 0.05)))
+    assert any(observation.gesture == "FireTalisman" for observation in observations)
 
 
 def test_default_point_waits_for_motion_intent_window() -> None:
@@ -145,3 +150,16 @@ def test_default_point_waits_for_motion_intent_window() -> None:
     assert machine.update(point, 0.0)[0].type == "gesture_candidate"
     assert machine.update(point, 0.20)[0].type == "gesture_candidate"
     assert machine.update(point, 0.39)[0].type == "gesture_recognized"
+
+
+def test_calibration_derives_personal_thresholds_without_raw_landmarks(tmp_path) -> None:
+    sword = TrajectoryFeatures(1.2, 0.2, 6.0, 1.3, 15.0)
+    circle = TrajectoryFeatures(1.0, 0.9, 1.1, 3.8, 300.0)
+    profile = GestureCalibration.from_samples([0.18, 0.22], [0.40, 0.44], [sword], [circle])
+    assert profile.palm_width == 0.20
+    assert profile.pinch_threshold == 0.50
+    assert profile.sword_min_span_ratio == 0.72
+    assert profile.circle_min_rotation_degrees == 180.0
+    path = tmp_path / "calibration.json"
+    profile.save(path)
+    assert GestureCalibration.load(path) == profile

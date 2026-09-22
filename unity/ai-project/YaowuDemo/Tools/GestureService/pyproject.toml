@@ -15,6 +15,7 @@ dev = ["pytest>=8.0"]
 
 [project.scripts]
 ghost-gesture = "ghost_gesture.cli:main"
+ghost-gesture-calibrate = "ghost_gesture.calibration_cli:main"
 
 [tool.setuptools.packages.find]
 where = ["."]

@@ -5,6 +5,7 @@ from dataclasses import dataclass
 import math
 import time
 
+from .calibration import GestureCalibration
 from .models import GestureEvent, HandFrame, Landmark
 from .trace import TraceIdFactory
 
@@ -33,16 +34,21 @@ class Observation:
 
 
 class GestureDetector:
-    def __init__(self, history_size: int = 72, dynamic_window_seconds: float = 1.45) -> None:
+    def __init__(self, calibration: GestureCalibration | None = None, history_size: int = 72, dynamic_window_seconds: float = 1.45) -> None:
         self._history: deque[tuple[float, float, float]] = deque(maxlen=history_size)
+        self.calibration = calibration or GestureCalibration.default()
         self._dynamic_window_seconds = dynamic_window_seconds
         self._latched_dynamic: Observation | None = None
         self._dynamic_latch_until = 0.0
+        self._point_still_since: float | None = None
+        self._sequence_armed_until = 0.0
 
     def reset(self) -> None:
         self._history.clear()
         self._latched_dynamic = None
         self._dynamic_latch_until = 0.0
+        self._point_still_since = None
+        self._sequence_armed_until = 0.0
 
     def observe(self, frame: HandFrame) -> Observation:
         points = frame.landmarks
@@ -53,22 +59,28 @@ class GestureDetector:
             return self._latched_dynamic
         self._latched_dynamic = None
         pinch = distance(points[4], points[8]) / palm
-        if pinch < 0.48:
-            return Observation("Confirm", min(1.0, 0.60 + (0.48 - pinch) / 0.28))
+        if pinch < self.calibration.pinch_threshold:
+            self._clear_sequence()
+            return Observation("Confirm", min(1.0, 0.60 + (self.calibration.pinch_threshold - pinch) / 0.28))
         extended = [finger_extended(points, tip, pip) for tip, pip in zip(TIP_IDS[1:], PIP_IDS[1:])]
         if all(extended):
+            self._clear_sequence()
             return Observation("OpenPalm", 0.92)
         if extended[0] and not any(extended[1:]):
-            dynamic = self._dynamic(palm)
-            if dynamic.gesture:
-                self._latched_dynamic = dynamic
-                self._dynamic_latch_until = frame.timestamp + 0.20
-                return dynamic
-            # Dynamic input starts as a pointing hand. Suppress Point once
-            # meaningful motion begins, preventing Point from confirming first.
             if self._motion_in_progress(palm):
+                dynamic = self._dynamic(palm) if frame.timestamp <= self._sequence_armed_until else Observation(None, 0.0)
+                if dynamic.gesture:
+                    self._latched_dynamic = dynamic
+                    self._dynamic_latch_until = frame.timestamp + 0.20
+                    return dynamic
+                self._point_still_since = None
                 return Observation(None, 0.0)
+            if self._point_still_since is None:
+                self._point_still_since = frame.timestamp
+            if frame.timestamp - self._point_still_since >= self.calibration.sequence_arm_seconds:
+                self._sequence_armed_until = frame.timestamp + self._dynamic_window_seconds
             return Observation("Point", 0.88)
+        self._clear_sequence()
         return Observation(None, 0.0)
 
     def _dynamic(self, palm: float) -> Observation:
@@ -92,19 +104,19 @@ class GestureDetector:
         radius = sum(math.hypot(x - center_x, y - center_y) for x, y in zip(xs, ys)) / len(xs)
         if (
             len(history) >= 12
-            and abs(rotation) >= math.radians(220)
-            and span_x >= palm * 0.75
-            and span_y >= palm * 0.75
-            and radius >= palm * 0.33
-            and path >= palm * 2.2
+            and abs(rotation) >= math.radians(self.calibration.circle_min_rotation_degrees)
+            and span_x >= palm * self.calibration.circle_min_span_ratio
+            and span_y >= palm * self.calibration.circle_min_span_ratio
+            and radius >= palm * (self.calibration.circle_min_span_ratio * 0.50)
+            and path >= palm * self.calibration.circle_min_path_ratio
         ):
             progress = min(1.0, abs(rotation) / (2 * math.pi))
             return Observation("FireTalisman", 0.82 + 0.18 * progress, progress)
         if (
-            span_x >= palm * 0.80
-            and span_x >= span_y * 2.4
-            and abs(net_x) >= palm * 0.70
-            and path <= span_x * 1.45
+            span_x >= palm * self.calibration.sword_min_span_ratio
+            and span_x >= span_y * self.calibration.sword_axis_ratio
+            and abs(net_x) >= palm * (self.calibration.sword_min_span_ratio * 0.80)
+            and path <= span_x * 1.80
         ):
             return Observation("SwordQi", min(1.0, span_x / (1.6 * palm)))
         return Observation(None, 0.0)
@@ -122,6 +134,10 @@ class GestureDetector:
         ys = [p[2] for p in history]
         path = sum(math.hypot(b[1] - a[1], b[2] - a[2]) for a, b in zip(history, history[1:]))
         return max(max(xs) - min(xs), max(ys) - min(ys)) >= palm * 0.32 or path >= palm * 0.45
+
+    def _clear_sequence(self) -> None:
+        self._point_still_since = None
+        self._sequence_armed_until = 0.0
 
 
 class GestureStateMachine:
