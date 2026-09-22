@@ -8,12 +8,12 @@ EvoTavern 进化酒馆黑客松赛道二：NEW LIFE｜AI 游戏与交互世界�
 
 ## 当前主线
 
-- Unity 主仓库：<https://gitee.com/Zack02/please-god.git>
-- Unity 分支：`master`
-- Unity 项目：`ai-project/YaowuDemo`
+- 团队主仓库：<https://github.com/zackyao02/Ghost-Transfer-Protocol-.git>
+- 团队分支：`master`
+- Unity 目标目录：`unity/ai-project/YaowuDemo`
 - 3D 资产：Tripo 生成山魈、法相、石精和 Ghost 义体
 - 手势输入：Python MediaPipe → 本地 JSON → Unity
-- 备用仓库：<https://gitee.com/Zack02/git.git>
+- 历史源码来源：<https://gitee.com/Zack02/please-god.git>，仅用于迁移，不再作为团队开发入口
 
 ## 项目目标
 
@@ -47,4 +47,3 @@ feature/scene          场景与关卡
 feature/characters     角色、Tripo、VFX、音效
 feature/input          玩法、手势、UI、Agent、构建
 ```
-

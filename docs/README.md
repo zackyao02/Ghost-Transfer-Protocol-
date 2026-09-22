@@ -4,10 +4,12 @@
 
 - 比赛：EvoTavern 进化酒馆黑客松，赛道二 NEW LIFE。
 - 主引擎：Unity。
-- 主仓库：`https://gitee.com/Zack02/please-god.git`。
+- 团队主仓库：`https://github.com/zackyao02/Ghost-Transfer-Protocol-.git`。
+- 团队统一从 `master` 创建功能分支。
+- Unity 源码目标目录：`unity/ai-project/YaowuDemo`。
 - 基线分支：`master`。
 - Unity 项目入口：`ai-project/YaowuDemo`。
-- 备用仓库：`https://gitee.com/Zack02/git.git`，仅保留网页版与手势测试备份。
+- Gitee 只作为历史源码来源，不再用于团队开发和提交。
 - 体验目标：120～150 秒、单场景、全视觉主控的东方赛博仪式战斗。
 - AI 核心：一个 World Director Agent，让 Ghost 的历史记忆改变 Boss 行为、义体与下一局世界。
 - 3D 资产：Tripo 负责山魈、法相、石精和 Ghost 义体；比赛演示优先使用预生成资产。
@@ -30,4 +32,3 @@
 - 不让实时模型生成、网络或摄像头成为通关前提。
 - 每个功能必须服务于比赛评分、现场稳定性或两分钟体验。
 - `master` 始终保持可运行；日常集成使用 `integration/demo`。
-
