@@ -1,0 +1,25 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ghost-gesture-service"
+version = "0.1.0"
+description = "Local JSON gesture service for Ghost Transfer Protocol"
+requires-python = ">=3.10"
+dependencies = []
+
+[project.optional-dependencies]
+vision = ["mediapipe>=0.10.14", "opencv-python>=4.9"]
+dev = ["pytest>=8.0"]
+
+[project.scripts]
+ghost-gesture = "ghost_gesture.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["ghost_gesture*"]
+
+[tool.pytest.ini_options]
+testpaths = ["../tests"]
+pythonpath = ["."]

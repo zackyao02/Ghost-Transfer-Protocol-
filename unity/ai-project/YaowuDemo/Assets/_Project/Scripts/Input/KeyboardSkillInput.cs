@@ -5,28 +5,18 @@ public sealed class KeyboardSkillInput : MonoBehaviour
 {
     public event Action<SkillType, string> SkillRequested;
     public event Action ResetRequested;
+    public event Action DebugToggleRequested;
+    public event Action<string> PresetLoadRequested;
 
     private void Update()
     {
-        if (Input.GetKeyDown(KeyCode.Alpha1))
-        {
-            SkillRequested?.Invoke(SkillType.SwordQi, "键盘剑气");
-        }
-
-        if (Input.GetKeyDown(KeyCode.Alpha2))
-        {
-            SkillRequested?.Invoke(SkillType.FireTalisman, "键盘火符");
-        }
-
-        if (Input.GetKeyDown(KeyCode.Q))
-        {
-            SkillRequested?.Invoke(SkillType.DeitySummon, "键盘请神");
-        }
-
-        if (Input.GetKeyDown(KeyCode.R))
-        {
-            ResetRequested?.Invoke();
-        }
+        if (Input.GetKeyDown(KeyCode.Alpha1)) SkillRequested?.Invoke(SkillType.SwordQi, "键盘剑气");
+        if (Input.GetKeyDown(KeyCode.Alpha2)) SkillRequested?.Invoke(SkillType.FireTalisman, "键盘火符");
+        if (Input.GetKeyDown(KeyCode.Q)) SkillRequested?.Invoke(SkillType.DeitySummon, "键盘请神");
+        if (Input.GetKeyDown(KeyCode.R)) ResetRequested?.Invoke();
+        if (Input.GetKeyDown(KeyCode.F1)) DebugToggleRequested?.Invoke();
+        if (Input.GetKeyDown(KeyCode.F2)) PresetLoadRequested?.Invoke("kind");
+        if (Input.GetKeyDown(KeyCode.F3)) PresetLoadRequested?.Invoke("hostile");
 
         if (Input.GetKeyDown(KeyCode.Escape))
         {

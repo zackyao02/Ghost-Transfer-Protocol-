@@ -50,6 +50,11 @@ public sealed class GameJamBootstrap : MonoBehaviour
         KeyboardSkillInput keyboardInput = playerRoot.AddComponent<KeyboardSkillInput>();
         MediaPipeHandInput mediaPipeInput = playerRoot.AddComponent<MediaPipeHandInput>();
 
+        WorldStateStore worldState = new GameObject("WorldStateStore").AddComponent<WorldStateStore>();
+        worldState.Load();
+        DirectorDebugPanel debugPanel = new GameObject("DirectorDebugPanel").AddComponent<DirectorDebugPanel>();
+        debugPanel.Initialize(keyboardInput, mediaPipeInput, worldState);
+
         SkillManager skillManager = playerRoot.AddComponent<SkillManager>();
         skillManager.Initialize(cameraRef.transform, cameraRef, cameraShake);
 
