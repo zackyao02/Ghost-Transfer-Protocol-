@@ -2,18 +2,19 @@ from __future__ import annotations
 
 import asyncio
 import json
+import math
 import threading
 
 from ghost_gesture.audit import StructuredEventLogger
-from ghost_gesture.detector import GestureStateMachine, Observation
+from ghost_gesture.detector import GestureDetector, GestureStateMachine, Observation
 from ghost_gesture.metrics import ManualGestureStats
-from ghost_gesture.models import GestureEvent
+from ghost_gesture.models import GestureEvent, HandFrame, Landmark
 from ghost_gesture.protocol import decode_message, encode_message
 from ghost_gesture.server import GestureTcpServer
 
 
 def test_jitter_breaks_hold_and_cooldown_deduplicates() -> None:
-    machine = GestureStateMachine(candidate_seconds=0.10, cooldown_seconds=0.50, neutral_seconds=0.05)
+    machine = GestureStateMachine(candidate_seconds=0.10, cooldown_seconds=0.50, neutral_seconds=0.05, point_seconds=0.10)
     point = Observation("Point", 0.9)
     first_candidate = machine.update(point, 0.00)[0]
     assert first_candidate.type == "gesture_candidate"
@@ -30,7 +31,7 @@ def test_jitter_breaks_hold_and_cooldown_deduplicates() -> None:
 
 
 def test_repeated_input_stress_has_one_confirmation_per_neutral_reset() -> None:
-    machine = GestureStateMachine(candidate_seconds=0.04, cooldown_seconds=0.08, neutral_seconds=0.02)
+    machine = GestureStateMachine(candidate_seconds=0.04, cooldown_seconds=0.08, neutral_seconds=0.02, point_seconds=0.04)
     point = Observation("Point", 0.9)
     recognized: list[GestureEvent] = []
     now = 0.0
@@ -102,3 +103,45 @@ def test_tcp_broadcast_uses_length_prefixed_protocol() -> None:
         await server.close()
 
     asyncio.run(scenario())
+
+
+def _pointing_frame(index_x: float, index_y: float, timestamp: float, thumb_x: float = 2.0, thumb_y: float = 2.0) -> HandFrame:
+    points = [Landmark(0.0, 0.0) for _ in range(21)]
+    points[5], points[17] = Landmark(-0.5, 0.0), Landmark(0.5, 0.0)
+    points[4] = Landmark(thumb_x, thumb_y)
+    points[6], points[8] = Landmark(0.0, 0.30), Landmark(index_x, index_y)
+    for pip, tip in ((10, 12), (14, 16), (18, 20)):
+        points[pip], points[tip] = Landmark(0.0, 0.30), Landmark(0.0, 0.08)
+    return HandFrame(tuple(points), timestamp=timestamp)
+
+
+def test_detector_accepts_relaxed_pinch_distance() -> None:
+    detector = GestureDetector()
+    observation = detector.observe(_pointing_frame(0.0, 1.0, 0.0, thumb_x=0.43, thumb_y=1.0))
+    assert observation.gesture == "Confirm"
+
+
+def test_detector_recognizes_horizontal_sword_before_static_point() -> None:
+    detector = GestureDetector()
+    observations = [
+        detector.observe(_pointing_frame(-0.55 + step * 0.10, 1.0, step * 0.05))
+        for step in range(13)
+    ]
+    assert observations[-1].gesture == "SwordQi"
+
+
+def test_detector_recognizes_full_circle() -> None:
+    detector = GestureDetector()
+    observations = []
+    for step in range(22):
+        angle = step * (2 * math.pi / 21)
+        observations.append(detector.observe(_pointing_frame(0.55 * math.cos(angle), 1.0 + 0.55 * math.sin(angle), step * 0.05)))
+    assert observations[-1].gesture == "FireTalisman"
+
+
+def test_default_point_waits_for_motion_intent_window() -> None:
+    machine = GestureStateMachine()
+    point = Observation("Point", 0.9)
+    assert machine.update(point, 0.0)[0].type == "gesture_candidate"
+    assert machine.update(point, 0.20)[0].type == "gesture_candidate"
+    assert machine.update(point, 0.39)[0].type == "gesture_recognized"

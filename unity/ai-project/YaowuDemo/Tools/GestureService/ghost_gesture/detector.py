@@ -33,54 +33,102 @@ class Observation:
 
 
 class GestureDetector:
-    def __init__(self, history_size: int = 36) -> None:
+    def __init__(self, history_size: int = 72, dynamic_window_seconds: float = 1.45) -> None:
         self._history: deque[tuple[float, float, float]] = deque(maxlen=history_size)
+        self._dynamic_window_seconds = dynamic_window_seconds
+        self._latched_dynamic: Observation | None = None
+        self._dynamic_latch_until = 0.0
 
     def reset(self) -> None:
         self._history.clear()
+        self._latched_dynamic = None
+        self._dynamic_latch_until = 0.0
 
     def observe(self, frame: HandFrame) -> Observation:
         points = frame.landmarks
         palm = palm_width(points)
         self._history.append((frame.timestamp, points[8].x, points[8].y))
+        self._trim_history(frame.timestamp)
+        if self._latched_dynamic is not None and frame.timestamp < self._dynamic_latch_until:
+            return self._latched_dynamic
+        self._latched_dynamic = None
         pinch = distance(points[4], points[8]) / palm
-        if pinch < 0.34:
-            return Observation("Confirm", min(1.0, 0.65 + (0.34 - pinch) / 0.20))
+        if pinch < 0.48:
+            return Observation("Confirm", min(1.0, 0.60 + (0.48 - pinch) / 0.28))
         extended = [finger_extended(points, tip, pip) for tip, pip in zip(TIP_IDS[1:], PIP_IDS[1:])]
         if all(extended):
             return Observation("OpenPalm", 0.92)
         if extended[0] and not any(extended[1:]):
             dynamic = self._dynamic(palm)
-            return dynamic if dynamic.gesture else Observation("Point", 0.88)
+            if dynamic.gesture:
+                self._latched_dynamic = dynamic
+                self._dynamic_latch_until = frame.timestamp + 0.20
+                return dynamic
+            # Dynamic input starts as a pointing hand. Suppress Point once
+            # meaningful motion begins, preventing Point from confirming first.
+            if self._motion_in_progress(palm):
+                return Observation(None, 0.0)
+            return Observation("Point", 0.88)
         return Observation(None, 0.0)
 
     def _dynamic(self, palm: float) -> Observation:
-        if len(self._history) < 8:
+        if len(self._history) < 6:
             return Observation(None, 0.0)
         history = list(self._history)
         duration = history[-1][0] - history[0][0]
-        if duration <= 0 or duration > 1.8:
+        if duration < 0.12:
             return Observation(None, 0.0)
         xs = [p[1] for p in history]
         ys = [p[2] for p in history]
-        dx, dy = xs[-1] - xs[0], ys[-1] - ys[0]
+        span_x, span_y = max(xs) - min(xs), max(ys) - min(ys)
+        net_x = xs[-1] - xs[0]
         path = sum(math.hypot(b[1] - a[1], b[2] - a[2]) for a, b in zip(history, history[1:]))
-        if abs(dx) > 1.7 * palm and abs(dx) > 2.2 * abs(dy) and path < abs(dx) * 1.8:
-            return Observation("SwordQi", min(1.0, abs(dx) / (2.6 * palm)))
+
+        # Check a circle before a horizontal sweep: a partial circle can have a
+        # large horizontal span and otherwise be mistaken for SwordQi.
         center_x, center_y = sum(xs) / len(xs), sum(ys) / len(ys)
         angles = [math.atan2(y - center_y, x - center_x) for x, y in zip(xs, ys)]
         rotation = sum((b - a + math.pi) % (2 * math.pi) - math.pi for a, b in zip(angles, angles[1:]))
         radius = sum(math.hypot(x - center_x, y - center_y) for x, y in zip(xs, ys)) / len(xs)
-        if abs(rotation) >= math.radians(270) and radius >= palm * 0.45:
+        if (
+            len(history) >= 12
+            and abs(rotation) >= math.radians(220)
+            and span_x >= palm * 0.75
+            and span_y >= palm * 0.75
+            and radius >= palm * 0.33
+            and path >= palm * 2.2
+        ):
             progress = min(1.0, abs(rotation) / (2 * math.pi))
             return Observation("FireTalisman", 0.82 + 0.18 * progress, progress)
+        if (
+            span_x >= palm * 0.80
+            and span_x >= span_y * 2.4
+            and abs(net_x) >= palm * 0.70
+            and path <= span_x * 1.45
+        ):
+            return Observation("SwordQi", min(1.0, span_x / (1.6 * palm)))
         return Observation(None, 0.0)
+
+    def _trim_history(self, now: float) -> None:
+        cutoff = now - self._dynamic_window_seconds
+        while self._history and self._history[0][0] < cutoff:
+            self._history.popleft()
+
+    def _motion_in_progress(self, palm: float) -> bool:
+        if len(self._history) < 4:
+            return False
+        history = list(self._history)
+        xs = [p[1] for p in history]
+        ys = [p[2] for p in history]
+        path = sum(math.hypot(b[1] - a[1], b[2] - a[2]) for a, b in zip(history, history[1:]))
+        return max(max(xs) - min(xs), max(ys) - min(ys)) >= palm * 0.32 or path >= palm * 0.45
 
 
 class GestureStateMachine:
-    def __init__(self, hold_seconds: float = 0.65, candidate_seconds: float = 0.12, cooldown_seconds: float = 0.75, neutral_seconds: float = 0.20) -> None:
+    def __init__(self, hold_seconds: float = 0.65, candidate_seconds: float = 0.12, cooldown_seconds: float = 0.75, neutral_seconds: float = 0.20, point_seconds: float = 0.38, dynamic_seconds: float = 0.08) -> None:
         self.hold_seconds, self.candidate_seconds = hold_seconds, candidate_seconds
         self.cooldown_seconds, self.neutral_seconds = cooldown_seconds, neutral_seconds
+        self.point_seconds, self.dynamic_seconds = point_seconds, dynamic_seconds
         self.state = "NO_HAND"
         self._candidate: str | None = None
         self._candidate_trace: str | None = None
@@ -120,7 +168,14 @@ class GestureStateMachine:
             self._candidate, self._candidate_since = observation.gesture, now
             self._candidate_trace = self._trace.next(now)
             self.state = "CANDIDATE"
-        required = self.hold_seconds if observation.gesture == "OpenPalm" else self.candidate_seconds
+        if observation.gesture == "OpenPalm":
+            required = self.hold_seconds
+        elif observation.gesture == "Point":
+            required = self.point_seconds
+        elif observation.gesture in {"SwordQi", "FireTalisman"}:
+            required = self.dynamic_seconds
+        else:
+            required = self.candidate_seconds
         elapsed = now - self._candidate_since
         progress = max(observation.progress, min(1.0, elapsed / required))
         if elapsed < required:

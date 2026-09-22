@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 import time
 from collections.abc import Iterator
 
@@ -20,7 +21,19 @@ class OptionalMediaPipeCamera:
         except ImportError as exc:
             raise RuntimeError("install gesture_service[vision] to use camera mode") from exc
 
-        cap = cv2.VideoCapture(self.camera_index)
+        # On Windows, MSMF can report an opened device while failing to deliver
+        # frames for some USB/virtual cameras. Prefer DirectShow there and keep
+        # the default backend as a portable fallback.
+        backends = [cv2.CAP_DSHOW, cv2.CAP_ANY] if os.name == "nt" else [cv2.CAP_ANY]
+        cap = None
+        for backend in backends:
+            candidate = cv2.VideoCapture(self.camera_index, backend)
+            if candidate.isOpened():
+                cap = candidate
+                break
+            candidate.release()
+        if cap is None:
+            cap = cv2.VideoCapture(self.camera_index)
         if not cap.isOpened():
             cap.release()
             raise RuntimeError(f"camera {self.camera_index} could not be opened")

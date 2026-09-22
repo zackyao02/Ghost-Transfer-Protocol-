@@ -30,7 +30,11 @@ async def run(args: argparse.Namespace) -> None:
                 await asyncio.sleep(1)
         else:
             for frame in OptionalMediaPipeCamera(args.camera, args.fps).frames():
-                observation = detector.observe(frame) if frame is not None else None
+                if frame is None:
+                    detector.reset()
+                    observation = None
+                else:
+                    observation = detector.observe(frame)
                 for event in machine.update(observation):
                     await server.broadcast(event)
                     stats.record(event) if stats is not None else None
