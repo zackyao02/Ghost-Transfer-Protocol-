@@ -7,7 +7,7 @@ public sealed class CyberShrinePresentation : MonoBehaviour
     private const string RootName = "CyberShrinePresentation";
     private readonly List<GlowNode> glowNodes = new List<GlowNode>();
     private readonly List<PulseNode> pulses = new List<PulseNode>();
-    private readonly MaterialPropertyBlock propertyBlock = new MaterialPropertyBlock();
+    private MaterialPropertyBlock propertyBlock;
 
     private Material charcoalMaterial;
     private Material vermilionMaterial;
@@ -15,6 +15,11 @@ public sealed class CyberShrinePresentation : MonoBehaviour
     private Material goldMaterial;
     private Vector3 playerSpawn;
     private Color environmentTint = Color.white;
+
+    private void Awake()
+    {
+        propertyBlock = new MaterialPropertyBlock();
+    }
 
     public static CyberShrinePresentation CreateOrReplace(Vector3 spawn)
     {
@@ -251,6 +256,8 @@ public sealed class CyberShrinePresentation : MonoBehaviour
 
     private void ApplyEmission(Renderer renderer, Color color, float intensity)
     {
+        if (renderer == null) return;
+        if (propertyBlock == null) propertyBlock = new MaterialPropertyBlock();
         propertyBlock.Clear();
         propertyBlock.SetColor("_Color", color);
         propertyBlock.SetColor("_EmissionColor", color * intensity);
