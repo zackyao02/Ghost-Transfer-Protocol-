@@ -87,10 +87,13 @@ class GestureCalibration:
         circles = list(circle_samples)
         return cls(
             palm_width=median(palms) if palms else base.palm_width,
-            pinch_threshold=_clamp(median(pinches) + 0.08, 0.34, 0.70) if pinches else base.pinch_threshold,
-            sword_min_span_ratio=_clamp(median(row.span_x_ratio for row in swords) * 0.60, 0.35, 1.20) if swords else base.sword_min_span_ratio,
-            sword_axis_ratio=_clamp(median(row.axis_ratio for row in swords) * 0.55, 1.20, 3.50) if swords else base.sword_axis_ratio,
-            circle_min_rotation_degrees=_clamp(median(row.rotation_degrees for row in circles) * 0.60, 110.0, 300.0) if circles else base.circle_min_rotation_degrees,
-            circle_min_span_ratio=_clamp(median(min(row.span_x_ratio, row.span_y_ratio) for row in circles) * 0.55, 0.30, 1.10) if circles else base.circle_min_span_ratio,
-            circle_min_path_ratio=_clamp(median(row.path_ratio for row in circles) * 0.55, 0.80, 5.00) if circles else base.circle_min_path_ratio,
+            # Calibration must never make recognition more demanding than the
+            # validated defaults. Personal samples only lower thresholds when a
+            # user consistently performs a smaller or slower trajectory.
+            pinch_threshold=_clamp(max(base.pinch_threshold, median(pinches) + 0.10), base.pinch_threshold, 0.70) if pinches else base.pinch_threshold,
+            sword_min_span_ratio=_clamp(median(row.span_x_ratio for row in swords) * 0.45, 0.30, base.sword_min_span_ratio) if swords else base.sword_min_span_ratio,
+            sword_axis_ratio=_clamp(median(row.axis_ratio for row in swords) * 0.40, 1.20, base.sword_axis_ratio) if swords else base.sword_axis_ratio,
+            circle_min_rotation_degrees=_clamp(median(row.rotation_degrees for row in circles) * 0.45, 100.0, base.circle_min_rotation_degrees) if circles else base.circle_min_rotation_degrees,
+            circle_min_span_ratio=_clamp(median(min(row.span_x_ratio, row.span_y_ratio) for row in circles) * 0.42, 0.28, base.circle_min_span_ratio) if circles else base.circle_min_span_ratio,
+            circle_min_path_ratio=_clamp(median(row.path_ratio for row in circles) * 0.38, 0.80, base.circle_min_path_ratio) if circles else base.circle_min_path_ratio,
         )

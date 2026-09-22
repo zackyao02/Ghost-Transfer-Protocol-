@@ -157,9 +157,10 @@ def test_calibration_derives_personal_thresholds_without_raw_landmarks(tmp_path)
     circle = TrajectoryFeatures(1.0, 0.9, 1.1, 3.8, 300.0)
     profile = GestureCalibration.from_samples([0.18, 0.22], [0.40, 0.44], [sword], [circle])
     assert profile.palm_width == 0.20
-    assert profile.pinch_threshold == 0.50
-    assert profile.sword_min_span_ratio == 0.72
-    assert profile.circle_min_rotation_degrees == 180.0
+    assert profile.pinch_threshold == 0.52
+    assert profile.sword_min_span_ratio == 0.54
+    assert profile.sword_axis_ratio == 1.70
+    assert profile.circle_min_rotation_degrees == 135.0
     path = tmp_path / "calibration.json"
     profile.save(path)
     assert GestureCalibration.load(path) == profile
