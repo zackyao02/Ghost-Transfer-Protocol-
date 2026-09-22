@@ -92,7 +92,7 @@ public sealed class CyberShrinePresentation : MonoBehaviour
 
     private void BuildEnvironment()
     {
-        CreatePrimitive(PrimitiveType.Plane, "ObsidianCourtyard", Vector3.zero, new Vector3(5f, 1f, 5f), charcoalMaterial);
+        CreatePrimitive(PrimitiveType.Plane, "ObsidianCourtyard", Vector3.zero, new Vector3(5f, 1f, 5f), charcoalMaterial, true);
         CreateTorii(new Vector3(0f, 0f, -1f), 1f);
         CreateTorii(new Vector3(0f, 0f, 12f), 1.25f);
         CreateShrine(new Vector3(0f, 0f, 22f));
@@ -161,7 +161,7 @@ public sealed class CyberShrinePresentation : MonoBehaviour
         }
     }
 
-    private Renderer CreatePrimitive(PrimitiveType type, string objectName, Vector3 position, Vector3 scale, Material material)
+    private Renderer CreatePrimitive(PrimitiveType type, string objectName, Vector3 position, Vector3 scale, Material material, bool colliderEnabled = false)
     {
         GameObject item = GameObject.CreatePrimitive(type);
         item.name = objectName;
@@ -169,7 +169,7 @@ public sealed class CyberShrinePresentation : MonoBehaviour
         item.transform.position = position;
         item.transform.localScale = scale;
         Collider collider = item.GetComponent<Collider>();
-        if (collider != null) collider.enabled = false;
+        if (collider != null) collider.enabled = colliderEnabled;
         Renderer renderer = item.GetComponent<Renderer>();
         renderer.sharedMaterial = material;
         return renderer;
