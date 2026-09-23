@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, replace
 import json
 import math
 from pathlib import Path
@@ -48,7 +48,7 @@ class TrajectoryFeatures:
 class GestureCalibration:
     """Derived personal thresholds; no frames or landmark histories are persisted."""
 
-    schema_version: int = 1
+    schema_version: int = 2
     palm_width: float = 0.20
     pinch_threshold: float = 0.50
     sword_min_span_ratio: float = 0.60
@@ -56,8 +56,8 @@ class GestureCalibration:
     circle_min_rotation_degrees: float = 150.0
     circle_min_span_ratio: float = 0.50
     circle_min_path_ratio: float = 1.40
-    point_hold_seconds: float = 0.65
-    sequence_arm_seconds: float = 0.18
+    point_hold_seconds: float = 0.45
+    sequence_arm_seconds: float = 0.15
 
     @classmethod
     def default(cls) -> "GestureCalibration":
@@ -67,7 +67,12 @@ class GestureCalibration:
     def load(cls, path: str | Path) -> "GestureCalibration":
         payload = json.loads(Path(path).read_text(encoding="utf-8"))
         allowed = {field: payload[field] for field in cls.__dataclass_fields__ if field in payload}
-        return cls(**allowed)
+        profile = cls(**allowed)
+        if profile.schema_version < 2:
+            # Migrate early profiles whose long Point hold made selection feel
+            # sluggish and could pre-empt a staged motion gesture.
+            return replace(profile, schema_version=2, point_hold_seconds=min(profile.point_hold_seconds, 0.45), sequence_arm_seconds=min(profile.sequence_arm_seconds, 0.15))
+        return profile
 
     def save(self, path: str | Path) -> None:
         Path(path).write_text(json.dumps(asdict(self), ensure_ascii=False, indent=2) + "\n", encoding="utf-8")

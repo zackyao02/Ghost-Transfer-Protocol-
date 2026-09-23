@@ -164,3 +164,12 @@ def test_calibration_derives_personal_thresholds_without_raw_landmarks(tmp_path)
     path = tmp_path / "calibration.json"
     profile.save(path)
     assert GestureCalibration.load(path) == profile
+
+
+def test_old_calibration_profile_migrates_to_shorter_point_hold(tmp_path) -> None:
+    path = tmp_path / "legacy-calibration.json"
+    path.write_text('{"schema_version": 1, "point_hold_seconds": 0.65, "sequence_arm_seconds": 0.18}', encoding="utf-8")
+    profile = GestureCalibration.load(path)
+    assert profile.schema_version == 2
+    assert profile.point_hold_seconds == 0.45
+    assert profile.sequence_arm_seconds == 0.15

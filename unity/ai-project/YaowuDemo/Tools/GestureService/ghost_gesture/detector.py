@@ -41,6 +41,7 @@ class GestureDetector:
         self._latched_dynamic: Observation | None = None
         self._dynamic_latch_until = 0.0
         self._point_still_since: float | None = None
+        self._sequence_started_at: float | None = None
         self._sequence_armed_until = 0.0
 
     def reset(self) -> None:
@@ -48,6 +49,7 @@ class GestureDetector:
         self._latched_dynamic = None
         self._dynamic_latch_until = 0.0
         self._point_still_since = None
+        self._sequence_started_at = None
         self._sequence_armed_until = 0.0
 
     def observe(self, frame: HandFrame) -> Observation:
@@ -77,16 +79,17 @@ class GestureDetector:
                 return Observation(None, 0.0)
             if self._point_still_since is None:
                 self._point_still_since = frame.timestamp
-            if frame.timestamp - self._point_still_since >= self.calibration.sequence_arm_seconds:
+            if (self._sequence_started_at is None or frame.timestamp > self._sequence_armed_until) and frame.timestamp - self._point_still_since >= self.calibration.sequence_arm_seconds:
+                self._sequence_started_at = frame.timestamp
                 self._sequence_armed_until = frame.timestamp + self._dynamic_window_seconds
             return Observation("Point", 0.88)
         self._clear_sequence()
         return Observation(None, 0.0)
 
     def _dynamic(self, palm: float) -> Observation:
-        if len(self._history) < 6:
+        history = self._node_trace(palm)
+        if len(history) < 6:
             return Observation(None, 0.0)
-        history = list(self._history)
         duration = history[-1][0] - history[0][0]
         if duration < 0.12:
             return Observation(None, 0.0)
@@ -96,21 +99,26 @@ class GestureDetector:
         net_x = xs[-1] - xs[0]
         path = sum(math.hypot(b[1] - a[1], b[2] - a[2]) for a, b in zip(history, history[1:]))
 
-        # Check a circle before a horizontal sweep: a partial circle can have a
-        # large horizontal span and otherwise be mistaken for SwordQi.
+        # Node-trajectory loop: use only the moving index-fingertip samples
+        # after the staged Point arm. This keeps stationary Point frames from
+        # distorting the loop centre and direction calculation.
         center_x, center_y = sum(xs) / len(xs), sum(ys) / len(ys)
         angles = [math.atan2(y - center_y, x - center_x) for x, y in zip(xs, ys)]
         rotation = sum((b - a + math.pi) % (2 * math.pi) - math.pi for a, b in zip(angles, angles[1:]))
         radius = sum(math.hypot(x - center_x, y - center_y) for x, y in zip(xs, ys)) / len(xs)
+        closed = math.hypot(xs[-1] - xs[0], ys[-1] - ys[0]) <= max(span_x, span_y) * 0.80
+        directions = self._direction_sequence(history, palm)
         if (
             len(history) >= 12
-            and abs(rotation) >= math.radians(self.calibration.circle_min_rotation_degrees)
+            and abs(rotation) >= math.radians(max(180.0, self.calibration.circle_min_rotation_degrees))
             and span_x >= palm * self.calibration.circle_min_span_ratio
             and span_y >= palm * self.calibration.circle_min_span_ratio
             and radius >= palm * (self.calibration.circle_min_span_ratio * 0.50)
             and path >= palm * self.calibration.circle_min_path_ratio
+            and closed
+            and len(directions) >= 3
         ):
-            progress = min(1.0, abs(rotation) / (2 * math.pi))
+            progress = min(1.0, max(abs(rotation) / (2 * math.pi), len(directions) / 4))
             return Observation("FireTalisman", 0.82 + 0.18 * progress, progress)
         if (
             span_x >= palm * self.calibration.sword_min_span_ratio
@@ -127,16 +135,44 @@ class GestureDetector:
             self._history.popleft()
 
     def _motion_in_progress(self, palm: float) -> bool:
-        if len(self._history) < 4:
+        history = self._node_trace(palm)
+        if len(history) < 2:
             return False
-        history = list(self._history)
         xs = [p[1] for p in history]
         ys = [p[2] for p in history]
         path = sum(math.hypot(b[1] - a[1], b[2] - a[2]) for a, b in zip(history, history[1:]))
         return max(max(xs) - min(xs), max(ys) - min(ys)) >= palm * 0.32 or path >= palm * 0.45
 
+    def _node_trace(self, palm: float) -> list[tuple[float, float, float]]:
+        history = list(self._history)
+        if self._sequence_started_at is not None:
+            history = [point for point in history if point[0] >= self._sequence_started_at]
+        if len(history) < 2:
+            return history
+        origin = history[0]
+        for index, point in enumerate(history[1:], start=1):
+            if math.hypot(point[1] - origin[1], point[2] - origin[2]) >= palm * 0.12:
+                return history[max(0, index - 1):]
+        return history[:1]
+
+    def _direction_sequence(self, history: list[tuple[float, float, float]], palm: float) -> list[str]:
+        if len(history) < 2:
+            return []
+        labels: list[str] = []
+        anchor = history[0]
+        for point in history[1:]:
+            dx, dy = point[1] - anchor[1], point[2] - anchor[2]
+            if math.hypot(dx, dy) < palm * 0.20:
+                continue
+            label = ("右" if dx > 0 else "左") if abs(dx) >= abs(dy) else ("下" if dy > 0 else "上")
+            if not labels or label != labels[-1]:
+                labels.append(label)
+            anchor = point
+        return labels
+
     def _clear_sequence(self) -> None:
         self._point_still_since = None
+        self._sequence_started_at = None
         self._sequence_armed_until = 0.0
 
 
