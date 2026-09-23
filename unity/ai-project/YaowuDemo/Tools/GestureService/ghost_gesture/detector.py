@@ -23,7 +23,19 @@ def palm_width(points: tuple[Landmark, ...]) -> float:
 
 def finger_extended(points: tuple[Landmark, ...], tip: int, pip: int) -> bool:
     wrist = points[0]
-    return distance(points[tip], wrist) > distance(points[pip], wrist) * 1.12
+    mcp = tip - 3
+    pip_point = points[pip]
+    upper = points[tip]
+    lower = points[mcp]
+    first = (lower.x - pip_point.x, lower.y - pip_point.y)
+    second = (upper.x - pip_point.x, upper.y - pip_point.y)
+    lengths = math.hypot(*first) * math.hypot(*second)
+    if lengths <= 1e-6:
+        return distance(points[tip], wrist) > distance(points[pip], wrist) * 1.08
+    cosine = max(-1.0, min(1.0, (first[0] * second[0] + first[1] * second[1]) / lengths))
+    bend_angle = math.degrees(math.acos(cosine))
+    reach = distance(points[tip], points[mcp]) / max(distance(points[pip], points[mcp]), 1e-4)
+    return bend_angle >= 145.0 and reach >= 1.05
 
 
 @dataclass(frozen=True)
@@ -43,6 +55,8 @@ class GestureDetector:
         self._point_still_since: float | None = None
         self._sequence_started_at: float | None = None
         self._sequence_armed_until = 0.0
+        self._filtered_tip: tuple[float, float] | None = None
+        self._last_filter_time: float | None = None
 
     def reset(self) -> None:
         self._history.clear()
@@ -51,11 +65,14 @@ class GestureDetector:
         self._point_still_since = None
         self._sequence_started_at = None
         self._sequence_armed_until = 0.0
+        self._filtered_tip = None
+        self._last_filter_time = None
 
     def observe(self, frame: HandFrame) -> Observation:
         points = frame.landmarks
         palm = palm_width(points)
-        self._history.append((frame.timestamp, points[8].x, points[8].y))
+        tip_x, tip_y = self._filter_tip(points[8].x, points[8].y, palm, frame.timestamp)
+        self._history.append((frame.timestamp, tip_x, tip_y))
         self._trim_history(frame.timestamp)
         if self._latched_dynamic is not None and frame.timestamp < self._dynamic_latch_until:
             return self._latched_dynamic
@@ -67,7 +84,10 @@ class GestureDetector:
         if all(extended):
             self._clear_sequence()
             return Observation("OpenPalm", 0.92)
-        if extended[0] and not any(extended[1:]):
+        sequence_active = frame.timestamp <= self._sequence_armed_until and self._sequence_started_at is not None
+        # Once the index tip sequence is armed, keep tracking node 8 even if
+        # MediaPipe briefly changes the curled-finger classification mid-swipe.
+        if extended[0] or sequence_active:
             if self._motion_in_progress(palm):
                 dynamic = self._dynamic(palm) if frame.timestamp <= self._sequence_armed_until else Observation(None, 0.0)
                 if dynamic.gesture:
@@ -76,7 +96,7 @@ class GestureDetector:
                     return dynamic
                 self._point_still_since = None
                 return Observation(None, 0.0)
-            if pinch < self.calibration.pinch_threshold:
+            if extended[0] and pinch < self.calibration.pinch_threshold:
                 self._clear_sequence()
                 return Observation("Confirm", min(1.0, 0.60 + (self.calibration.pinch_threshold - pinch) / 0.28))
             if self._point_still_since is None:
@@ -84,7 +104,7 @@ class GestureDetector:
             if (self._sequence_started_at is None or frame.timestamp > self._sequence_armed_until) and frame.timestamp - self._point_still_since >= self.calibration.sequence_arm_seconds:
                 self._sequence_started_at = frame.timestamp
                 self._sequence_armed_until = frame.timestamp + self._dynamic_window_seconds
-            return Observation("Point", 0.88)
+            return Observation("Point", 0.88 if extended[0] else 0.65)
         self._clear_sequence()
         if pinch < self.calibration.pinch_threshold:
             return Observation("Confirm", min(1.0, 0.60 + (self.calibration.pinch_threshold - pinch) / 0.28))
@@ -92,10 +112,10 @@ class GestureDetector:
 
     def _dynamic(self, palm: float) -> Observation:
         history = self._node_trace(palm)
-        if len(history) < 6:
+        if len(history) < 4:
             return Observation(None, 0.0)
         duration = history[-1][0] - history[0][0]
-        if duration < 0.12:
+        if duration < 0.025:
             return Observation(None, 0.0)
         xs = [p[1] for p in history]
         ys = [p[2] for p in history]
@@ -112,7 +132,7 @@ class GestureDetector:
         radius = sum(math.hypot(x - center_x, y - center_y) for x, y in zip(xs, ys)) / len(xs)
         directions = self._direction_sequence(history, palm)
         if (
-            len(history) >= 12
+            len(history) >= 6
             and span_x >= palm * (self.calibration.circle_min_span_ratio * 0.80)
             and span_y >= palm * (self.calibration.circle_min_span_ratio * 0.80)
             and radius >= palm * (self.calibration.circle_min_span_ratio * 0.35)
@@ -134,6 +154,25 @@ class GestureDetector:
         cutoff = now - self._dynamic_window_seconds
         while self._history and self._history[0][0] < cutoff:
             self._history.popleft()
+
+    def _filter_tip(self, x: float, y: float, palm: float, now: float) -> tuple[float, float]:
+        if self._filtered_tip is None or self._last_filter_time is None or now - self._last_filter_time > 0.18:
+            self._filtered_tip = (x, y)
+            self._last_filter_time = now
+            return self._filtered_tip
+        previous_x, previous_y = self._filtered_tip
+        dx, dy = x - previous_x, y - previous_y
+        displacement = math.hypot(dx, dy)
+        if displacement < palm * 0.025:
+            # Ignore tiny landmark jitter while the hand is held still.
+            self._last_filter_time = now
+            return self._filtered_tip
+        elapsed = max(now - self._last_filter_time, 1e-3)
+        speed = displacement / max(palm * elapsed, 1e-4)
+        alpha = max(0.48, min(0.92, 0.48 + speed * 0.045))
+        self._filtered_tip = (previous_x + alpha * dx, previous_y + alpha * dy)
+        self._last_filter_time = now
+        return self._filtered_tip
 
     def _motion_in_progress(self, palm: float) -> bool:
         history = self._node_trace(palm)

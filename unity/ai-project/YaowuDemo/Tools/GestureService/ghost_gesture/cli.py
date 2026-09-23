@@ -23,6 +23,8 @@ async def run(args: argparse.Namespace) -> None:
     calibration = GestureCalibration.load(calibration_path) if calibration_path.exists() else GestureCalibration.default()
     detector = GestureDetector(calibration)
     machine = GestureStateMachine(point_seconds=calibration.point_hold_seconds)
+    hand_missing_since: float | None = None
+    missing_reset_seconds = 0.12
     await server.start()
     await server.broadcast(GestureEvent("camera_status", time.time(), state="STARTING"))
     logging.info("gesture service listening on %s:%s", args.host, server.port)
@@ -37,10 +39,21 @@ async def run(args: argparse.Namespace) -> None:
         else:
             for frame in OptionalMediaPipeCamera(args.camera, args.fps).frames():
                 if frame is None:
+                    now = time.monotonic()
+                    hand_missing_since = hand_missing_since or now
+                    if now - hand_missing_since < missing_reset_seconds:
+                        # Bridge brief landmark dropouts so a fast movement
+                        # does not split into unrelated partial traces.
+                        continue
                     detector.reset()
-                    observation = None
-                else:
-                    observation = detector.observe(frame)
+                    for event in machine.update(None):
+                        await server.broadcast(event)
+                    continue
+                if hand_missing_since is not None:
+                    if time.monotonic() - hand_missing_since >= missing_reset_seconds:
+                        detector.reset()
+                    hand_missing_since = None
+                observation = detector.observe(frame)
                 for event in machine.update(observation):
                     await server.broadcast(event)
                     stats.record(event) if stats is not None else None
