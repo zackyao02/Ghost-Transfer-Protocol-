@@ -27,7 +27,7 @@ def _draw(cv2, frame, title: str, detail: str, remaining: float):
     return cv2.cvtColor(np.asarray(image), cv2.COLOR_RGB2BGR)
 
 
-def _capture_trial(cv2, cap, hands, name: str, instruction: str, trial: int, total: int, neutral_seconds: float, active_seconds: float):
+def _capture_trial(cv2, cap, hands, name: str, instruction: str, trial: int, total: int, neutral_seconds: float, active_seconds: float, track_two_finger: bool = False):
     for phase, duration in (("准备", neutral_seconds), ("执行手势", active_seconds)):
         started = time.monotonic()
         samples: list[tuple[float, float, float, float]] = []
@@ -45,7 +45,9 @@ def _capture_trial(cv2, cap, hands, name: str, instruction: str, trial: int, tot
                     pinch = ((points[4].x - points[8].x) ** 2 + (points[4].y - points[8].y) ** 2) ** 0.5 / palm
                     palms.append(palm)
                     pinches.append(pinch)
-                    samples.append((time.time(), points[8].x, points[8].y, palm))
+                    trace_x = (points[8].x + points[12].x) * 0.5 if track_two_finger else points[8].x
+                    trace_y = (points[8].y + points[12].y) * 0.5 if track_two_finger else points[8].y
+                    samples.append((time.time(), trace_x, trace_y, palm))
             display = _draw(cv2, frame, f"{name}：第 {trial}/{total} 次 · {phase}", instruction if phase == "执行手势" else "请放下手，等待下一次", duration - (time.monotonic() - started))
             cv2.imshow("幽灵传输协议 · 手势校准", display)
             if cv2.waitKey(1) & 0xFF == ord("q"):
@@ -81,14 +83,14 @@ def main() -> None:
     phases = (
         ("手掌尺寸", "张开手掌并保持", "palm"),
         ("捏合确认", "拇指与食指轻触并保持", "pinch"),
-        ("横划剑诀", "食指先停留，再快速水平横划", "sword"),
-        ("画圈净化符", "食指先停留，再连续画完整一圈", "circle"),
+        ("横划剑诀", "食指和中指并拢，先停留，再快速水平横划", "sword"),
+        ("画圈净化符", "食指和中指并拢，先停留，再连续画一圈", "circle"),
     )
     try:
         for name, instruction, kind in phases:
             for trial in range(1, args.trials + 1):
                 print(f"{name} {trial}/{args.trials}: {instruction}", flush=True)
-                widths, ratios, trajectory = _capture_trial(cv2, cap, hands, name, instruction, trial, args.trials, 0.8, 1.8)
+                widths, ratios, trajectory = _capture_trial(cv2, cap, hands, name, instruction, trial, args.trials, 0.8, 1.8, track_two_finger=kind in {"sword", "circle"})
                 palms.extend(widths)
                 if kind == "pinch" and ratios:
                     pinches.append(min(ratios))

@@ -39,7 +39,7 @@ python -m ghost_gesture.cli --fps 30 --audit-log gesture-audit.jsonl --manual-st
 - `performance`: FPS 与模式
 - `error`: 可扩展错误事件
 
-动作映射：`OpenPalm`（校准/神降）、`Point`（选择）、`Confirm`（捏合）、`SwordQi`（横划）、`FireTalisman`（画圈）。`DeitySummon` 由 Unity 在 OpenPalm 当前流程上下文中映射。
+动作映射：`OpenPalm`（校准/神降）、`Point`（单独伸食指指向/选择）、`Confirm`（捏合）、`SwordQi`（食指与中指并拢后横划）、`FireTalisman`（食指与中指并拢后画圈）。单食指模式追踪食指指尖；双指动态模式追踪食指与中指指尖的中点，两种轨迹分别初始化，互不混用。动态动作先保持双指姿势约 0.15 秒再移动。`DeitySummon` 由 Unity 在 OpenPalm 当前流程上下文中映射。
 
 ## 测试
 

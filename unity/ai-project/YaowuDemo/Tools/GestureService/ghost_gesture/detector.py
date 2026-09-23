@@ -55,6 +55,7 @@ class GestureDetector:
         self._point_still_since: float | None = None
         self._sequence_started_at: float | None = None
         self._sequence_armed_until = 0.0
+        self._tracking_mode: str | None = None
         self._filtered_tip: tuple[float, float] | None = None
         self._last_filter_time: float | None = None
 
@@ -65,37 +66,61 @@ class GestureDetector:
         self._point_still_since = None
         self._sequence_started_at = None
         self._sequence_armed_until = 0.0
+        self._tracking_mode = None
         self._filtered_tip = None
         self._last_filter_time = None
 
     def observe(self, frame: HandFrame) -> Observation:
         points = frame.landmarks
         palm = palm_width(points)
-        tip_x, tip_y = self._filter_tip(points[8].x, points[8].y, palm, frame.timestamp)
-        self._history.append((frame.timestamp, tip_x, tip_y))
-        self._trim_history(frame.timestamp)
+        extended = [finger_extended(points, tip, pip) for tip, pip in zip(TIP_IDS[1:], PIP_IDS[1:])]
+        pinch = distance(points[4], points[8]) / palm
+        two_finger_pose = extended[0] and extended[1] and not any(extended[2:])
+        sequence_active = self._tracking_mode == "two_finger" and frame.timestamp <= self._sequence_armed_until
+
+        if two_finger_pose or sequence_active:
+            if self._tracking_mode != "two_finger":
+                self._begin_tracking_mode("two_finger")
+            # The two fingertips move as one pointer. Their midpoint is less
+            # sensitive to one landmark flickering or either finger bending.
+            track_x = (points[8].x + points[12].x) * 0.5
+            track_y = (points[8].y + points[12].y) * 0.5
+            self._append_trace(track_x, track_y, palm, frame.timestamp)
+            if self._latched_dynamic is not None and frame.timestamp < self._dynamic_latch_until:
+                return self._latched_dynamic
+            self._latched_dynamic = None
+
+            if self._sequence_started_at is None:
+                if self._point_still_since is None:
+                    self._point_still_since = frame.timestamp
+                if frame.timestamp - self._point_still_since >= self.calibration.sequence_arm_seconds:
+                    self._sequence_started_at = frame.timestamp
+                    self._sequence_armed_until = frame.timestamp + self._dynamic_window_seconds
+                return Observation(None, 0.0)
+
+            if self._motion_in_progress(palm):
+                dynamic = self._dynamic(palm)
+                if dynamic.gesture:
+                    self._latched_dynamic = dynamic
+                    self._dynamic_latch_until = frame.timestamp + 0.20
+                    return dynamic
+            return Observation(None, 0.0)
+
+        # Switching to the one-finger pose starts a clean index-tip trace.
+        if self._tracking_mode != "index":
+            self._begin_tracking_mode("index")
+        self._append_trace(points[8].x, points[8].y, palm, frame.timestamp)
         if self._latched_dynamic is not None and frame.timestamp < self._dynamic_latch_until:
             return self._latched_dynamic
         self._latched_dynamic = None
-        extended = [finger_extended(points, tip, pip) for tip, pip in zip(TIP_IDS[1:], PIP_IDS[1:])]
-        pinch = distance(points[4], points[8]) / palm
         # Evaluate OpenPalm before pinch. An open hand viewed at an angle can
         # make the thumb and index look close despite all fingers being open.
         if all(extended):
             self._clear_sequence()
             return Observation("OpenPalm", 0.92)
-        sequence_active = frame.timestamp <= self._sequence_armed_until and self._sequence_started_at is not None
-        # Once the index tip sequence is armed, keep tracking node 8 even if
-        # MediaPipe briefly changes the curled-finger classification mid-swipe.
-        if extended[0] or sequence_active:
-            if self._motion_in_progress(palm):
-                dynamic = self._dynamic(palm) if frame.timestamp <= self._sequence_armed_until else Observation(None, 0.0)
-                if dynamic.gesture:
-                    self._latched_dynamic = dynamic
-                    self._dynamic_latch_until = frame.timestamp + 0.20
-                    return dynamic
-                self._point_still_since = None
-                return Observation(None, 0.0)
+        # Point is reserved for an isolated index finger. A posture change
+        # that exposes the middle finger enters the dedicated two-finger mode.
+        if extended[0] and not any(extended[1:]):
             if extended[0] and pinch < self.calibration.pinch_threshold:
                 self._clear_sequence()
                 return Observation("Confirm", min(1.0, 0.60 + (self.calibration.pinch_threshold - pinch) / 0.28))
@@ -104,11 +129,26 @@ class GestureDetector:
             if (self._sequence_started_at is None or frame.timestamp > self._sequence_armed_until) and frame.timestamp - self._point_still_since >= self.calibration.sequence_arm_seconds:
                 self._sequence_started_at = frame.timestamp
                 self._sequence_armed_until = frame.timestamp + self._dynamic_window_seconds
-            return Observation("Point", 0.88 if extended[0] else 0.65)
+            return Observation("Point", 0.88)
         self._clear_sequence()
         if pinch < self.calibration.pinch_threshold:
             return Observation("Confirm", min(1.0, 0.60 + (self.calibration.pinch_threshold - pinch) / 0.28))
         return Observation(None, 0.0)
+
+    def _append_trace(self, x: float, y: float, palm: float, now: float) -> None:
+        filtered_x, filtered_y = self._filter_tip(x, y, palm, now)
+        self._history.append((now, filtered_x, filtered_y))
+        self._trim_history(now)
+
+    def _begin_tracking_mode(self, mode: str) -> None:
+        self._history.clear()
+        self._latched_dynamic = None
+        self._point_still_since = None
+        self._sequence_started_at = None
+        self._sequence_armed_until = 0.0
+        self._filtered_tip = None
+        self._last_filter_time = None
+        self._tracking_mode = mode
 
     def _dynamic(self, palm: float) -> Observation:
         history = self._node_trace(palm)
