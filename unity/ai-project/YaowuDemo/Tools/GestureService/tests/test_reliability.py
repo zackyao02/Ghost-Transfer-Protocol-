@@ -122,6 +122,16 @@ def test_detector_accepts_relaxed_pinch_distance() -> None:
     assert observation.gesture == "Confirm"
 
 
+def test_open_palm_wins_over_perspective_pinch() -> None:
+    points = [Landmark(0.0, 0.0) for _ in range(21)]
+    points[5], points[17] = Landmark(-0.5, 0.0), Landmark(0.5, 0.0)
+    points[4], points[8] = Landmark(0.12, 1.0), Landmark(0.0, 1.0)
+    for pip, tip in ((6, 8), (10, 12), (14, 16), (18, 20)):
+        points[pip], points[tip] = Landmark(0.0, 0.30), Landmark(0.0, 1.0)
+    observation = GestureDetector().observe(HandFrame(tuple(points), timestamp=0.0))
+    assert observation.gesture == "OpenPalm"
+
+
 def test_detector_recognizes_horizontal_sword_before_static_point() -> None:
     detector = GestureDetector()
     for step in range(5):

@@ -60,11 +60,10 @@ class GestureDetector:
         if self._latched_dynamic is not None and frame.timestamp < self._dynamic_latch_until:
             return self._latched_dynamic
         self._latched_dynamic = None
-        pinch = distance(points[4], points[8]) / palm
-        if pinch < self.calibration.pinch_threshold:
-            self._clear_sequence()
-            return Observation("Confirm", min(1.0, 0.60 + (self.calibration.pinch_threshold - pinch) / 0.28))
         extended = [finger_extended(points, tip, pip) for tip, pip in zip(TIP_IDS[1:], PIP_IDS[1:])]
+        pinch = distance(points[4], points[8]) / palm
+        # Evaluate OpenPalm before pinch. An open hand viewed at an angle can
+        # make the thumb and index look close despite all fingers being open.
         if all(extended):
             self._clear_sequence()
             return Observation("OpenPalm", 0.92)
@@ -77,6 +76,9 @@ class GestureDetector:
                     return dynamic
                 self._point_still_since = None
                 return Observation(None, 0.0)
+            if pinch < self.calibration.pinch_threshold:
+                self._clear_sequence()
+                return Observation("Confirm", min(1.0, 0.60 + (self.calibration.pinch_threshold - pinch) / 0.28))
             if self._point_still_since is None:
                 self._point_still_since = frame.timestamp
             if (self._sequence_started_at is None or frame.timestamp > self._sequence_armed_until) and frame.timestamp - self._point_still_since >= self.calibration.sequence_arm_seconds:
@@ -84,6 +86,8 @@ class GestureDetector:
                 self._sequence_armed_until = frame.timestamp + self._dynamic_window_seconds
             return Observation("Point", 0.88)
         self._clear_sequence()
+        if pinch < self.calibration.pinch_threshold:
+            return Observation("Confirm", min(1.0, 0.60 + (self.calibration.pinch_threshold - pinch) / 0.28))
         return Observation(None, 0.0)
 
     def _dynamic(self, palm: float) -> Observation:
@@ -106,19 +110,16 @@ class GestureDetector:
         angles = [math.atan2(y - center_y, x - center_x) for x, y in zip(xs, ys)]
         rotation = sum((b - a + math.pi) % (2 * math.pi) - math.pi for a, b in zip(angles, angles[1:]))
         radius = sum(math.hypot(x - center_x, y - center_y) for x, y in zip(xs, ys)) / len(xs)
-        closed = math.hypot(xs[-1] - xs[0], ys[-1] - ys[0]) <= max(span_x, span_y) * 0.80
         directions = self._direction_sequence(history, palm)
         if (
             len(history) >= 12
-            and abs(rotation) >= math.radians(max(180.0, self.calibration.circle_min_rotation_degrees))
-            and span_x >= palm * self.calibration.circle_min_span_ratio
-            and span_y >= palm * self.calibration.circle_min_span_ratio
-            and radius >= palm * (self.calibration.circle_min_span_ratio * 0.50)
-            and path >= palm * self.calibration.circle_min_path_ratio
-            and closed
+            and span_x >= palm * (self.calibration.circle_min_span_ratio * 0.80)
+            and span_y >= palm * (self.calibration.circle_min_span_ratio * 0.80)
+            and radius >= palm * (self.calibration.circle_min_span_ratio * 0.35)
+            and path >= palm * (self.calibration.circle_min_path_ratio * 0.70)
             and len(directions) >= 3
         ):
-            progress = min(1.0, max(abs(rotation) / (2 * math.pi), len(directions) / 4))
+            progress = min(1.0, max(abs(rotation) / math.radians(180), len(directions) / 4))
             return Observation("FireTalisman", 0.82 + 0.18 * progress, progress)
         if (
             span_x >= palm * self.calibration.sword_min_span_ratio
